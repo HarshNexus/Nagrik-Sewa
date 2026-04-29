@@ -1,0 +1,464 @@
+{
+  "navigation": {
+    "home": "Home",
+    "services": "Services",
+    "workers": "Workers",
+    "about": "About",
+    "contact": "Contact",
+    "login": "Login",
+    "register": "Register",
+    "profile": "Profile",
+    "bookings": "My Bookings",
+    "dashboard": "Dashboard",
+    "forWorkers": "For Workers",
+    "forCustomers": "For Customers",
+    "browseWorkers": "Browse Workers",
+    "joinAsWorker": "Join as Worker",
+    "joinAsCustomer": "Join as Customer",
+    "skillTraining": "Skill Training",
+    "resumeBuilder": "Resume Builder",
+    "getVerified": "Get Verified",
+    "workerSupport": "Worker Support",
+    "findCustomers": "Find Customers",
+    "helpSupport": "Help & Support",
+    "support": "Support",
+    "serviceCategories": "Service Categories",
+    "homeServices": "Home Services",
+    "construction": "Construction",
+    "electrical": "Electrical",
+    "plumbing": "Plumbing",
+    "cleaning": "Cleaning",
+    "gardening": "Gardening",
+    "logout": "Log out",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "tagline": "AI-Powered Services"
+  },
+  "footer": {
+    "verifiedWorkers": "25K+",
+    "kycChecked": "KYC Verified Workers",
+    "workersCount": "50K+",
+    "acrossCities": "Active across 640+ Districts",
+    "govtRecognized": "Government Recognized",
+    "skillIndiaCertified": "Skill India Certified",
+    "companyDescription": "Nagrik Sewa is India's first AI-powered home services platform bridging the gap between skilled workers and customers. We empower workers with digital tools and provide customers with verified, skilled professionals.",
+    "services": "Services",
+    "govtSchemes": "Government Schemes",
+    "contactUs": "Contact Us",
+    "emergencyHelpline": "Emergency Helpline",
+    "emergency": "Emergency",
+    "copyright": "All rights reserved.",
+    "madeBy": "Made with love in India for India",
+    "happyCustomers": "Happy Customers",
+    "skilledWorkers": "Skilled Workers",
+    "districtsCovered": "Districts Covered"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "location": "Location",
+    "language": "Language",
+    "selectState": "Select State",
+    "selectDistrict": "Select District",
+    "joinAsWorker": "Join as Worker",
+    "joinAsCustomer": "Join as Customer",
+    "watchDemo": "Watch Demo",
+    "back": "Back",
+    "tryAgain": "Try again",
+    "refreshPage": "Refresh page",
+    "somethingWentWrong": "Something went wrong",
+    "genericError": "We're sorry, but something went wrong. Please try refreshing the page.",
+    "errorDetails": "Error details (dev only)"
+  },
+  "services": {
+    "homeService": "Home Services",
+    "findWorkers": "Find Workers",
+    "bookNow": "Book Now",
+    "viewDetails": "View Details"
+  },
+  "auth": {
+    "welcomeBack": "Welcome Back",
+    "createAccount": "Create Account",
+    "forgotPassword": "Forgot Password?",
+    "rememberMe": "Remember Me",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "orContinueWith": "Or continue with",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "phone": "Phone Number",
+    "confirmPassword": "Confirm Password",
+    "customer": "Customer",
+    "worker": "Worker",
+    "passwordMismatch": "Passwords do not match",
+    "invalidPhone": "Invalid phone number",
+    "signInCta": "Sign in to your Nagrik Sewa account",
+    "joinCta": "Join Nagrik Sewa community",
+    "signInAction": "Sign in",
+    "signUpAction": "Sign up",
+    "resetPassword": "Reset password",
+    "sendResetLink": "Send reset link",
+    "newPassword": "New password",
+    "confirmNewPassword": "Confirm new password",
+    "verifyEmailTitle": "Verify your email",
+    "verifyEmailSuccess": "Your email has been verified successfully.",
+    "loginFailed": "Login failed",
+    "registrationFailed": "Registration failed"
+  },
+  "locationDemo": {
+    "title": "Language & Location Demo",
+    "description": "Experience our multi-language interface and comprehensive location selection for all Indian states and districts.",
+    "languageTitle": "Language Selection",
+    "languageDesc": "Choose your preferred language from 13 Indian languages",
+    "locationTitle": "Location Selection",
+    "locationDesc": "Select your state and district from comprehensive Indian geographic data",
+    "customersTitle": "For Customers",
+    "customerFeature1": "Find services in your exact location",
+    "customerFeature2": "Interface in your preferred language",
+    "customerFeature3": "Precise district-level matching",
+    "workersTitle": "For Workers",
+    "workerFeature1": "Set your service area precisely",
+    "workerFeature2": "Work in your native language",
+    "workerFeature3": "Connect with local customers"
+  },
+  "home": {
+    "heroBadge": "🚀 Now Available in 25+ Cities Across India",
+    "heroTitle": "AI-Powered Home Services",
+    "heroTitleHighlight": "Made Simple",
+    "heroTitleEnd": "for Everyone",
+    "heroDescription": "India's premier digital platform connecting customers with verified service professionals through advanced AI technology.",
+    "heroSubtitle": "Trusted by 50,000+ families across India for reliable home services",
+    "intelligentChatbot": "Expert AI assistance",
+    "multilingualAI": "multilingual support",
+    "aiProfiles": "intelligent matching",
+    "preferredLanguage": "all in your native language",
+    "searchPlaceholder": "What service do you need?",
+    "findWorkers": "Find Workers",
+    "orText": "or",
+    "browseServices": "Browse All Services",
+    "popularServices": "Popular Services",
+    "demands": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "services": {
+      "houseCleaning": "House Cleaning",
+      "plumbing": "Plumbing",
+      "electricalWork": "Electrical Work",
+      "painting": "Painting",
+      "carpentry": "Carpentry",
+      "gardening": "Gardening"
+    },
+    "featuresTitle": "Why Choose Nagrik Sewa?",
+    "featuresSubtitle": "We're revolutionizing how India connects workers and customers with cutting-edge technology and deep local understanding.",
+    "badges": {
+      "techBadge": "✨ Powered by Advanced Technology",
+      "futureReady": "🔮 Future-Ready Platform"
+    },
+    "features": {
+      "aiMatching": {
+        "title": "AI-Powered Matching",
+        "description": "Smart algorithm matches you with the best workers based on location, skills, and ratings."
+      },
+      "multiLanguage": {
+        "title": "Multi-Language Support",
+        "description": "Platform available in 11+ Indian languages with voice assistant support."
+      },
+      "verified": {
+        "title": "Verified Workers",
+        "description": "All workers undergo KYC, Aadhaar verification, and background checks."
+      },
+      "tracking": {
+        "title": "Real-Time Tracking",
+        "description": "Track your worker's location and job progress in real-time with GPS."
+      },
+      "resume": {
+        "title": "Digital Resume Builder",
+        "description": "Workers can build professional resumes showcasing skills and ratings."
+      },
+      "emergency": {
+        "title": "Emergency SOS",
+        "description": "One-click emergency button for immediate help and safety alerts."
+      }
+    },
+    "advancedFeaturesSection": {
+      "title": "Advanced Features",
+      "subtitle": "We're building the future of work with innovative features that empower both workers and customers."
+    },
+    "advancedFeatures": {
+      "training": {
+        "title": "Skill Training & Upskilling",
+        "description": "Access to government-certified training programs and skill development courses."
+      },
+      "schemes": {
+        "title": "Government Schemes",
+        "description": "Discover and apply for relevant government schemes and benefits."
+      },
+      "analytics": {
+        "title": "Performance Analytics",
+        "description": "Track your service history, earnings, and customer feedback."
+      },
+      "community": {
+        "title": "Worker Community",
+        "description": "Connect with fellow workers, share experiences, and learn together."
+      }
+    },
+    "stats": {
+      "activeWorkers": "Active Workers",
+      "happyCustomers": "Happy Customers",
+      "servicesCompleted": "Services Completed",
+      "citiesCovered": "Cities Covered",
+      "averageRating": "Average Rating"
+    },
+    "testimonials": {
+      "title": "What People Say",
+      "subtitle": "Trusted by thousands of customers and workers across India"
+    },
+    "cta": {
+      "title": "Ready to Get Started?",
+      "subtitle": "Join thousands of satisfied customers and workers. Connect instantly and grow your business today.",
+      "findWorkers": "Find Workers",
+      "findCustomers": "Find Customers"
+    }
+  },
+  "legal": {
+    "terms": {
+      "title": "Terms of Service",
+      "subtitle": "Terms and conditions governing the use of Nagrik Sewa platform",
+      "lastUpdated": "Last updated"
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "subtitle": "Your privacy and data security are our top priorities",
+      "lastUpdated": "Last updated"
+    }
+  },
+  "servicesPage": {
+    "title": "All Services",
+    "subtitle": "Browse our complete catalog of verified workers across all service categories",
+    "locationNotice": "Select your location from the navigation bar to see services in your area",
+    "searchPlaceholder": "Search services...",
+    "categoryLabel": "Category",
+    "locationHelper": "(from navigation)",
+    "filters": "Filters",
+    "availableCount": "{{count}} Services Available in {{location}}",
+    "noResultsTitle": "No services found",
+    "noResultsSubtitle": "Try adjusting your search or filters",
+    "trustTitle": "Why Choose Our Services?",
+    "trustItems": {
+      "verified": {
+        "title": "100% Verified",
+        "description": "All workers undergo thorough background checks and KYC verification"
+      },
+      "quality": {
+        "title": "Quality Assured",
+        "description": "Rated by thousands of customers with transparent reviews"
+      },
+      "guarantee": {
+        "title": "Money Back Guarantee",
+        "description": "Not satisfied? Get your money back with our guarantee"
+      }
+    },
+    "services": {
+      "houseCleaning": {
+        "title": "House Cleaning",
+        "category": "Home Services",
+        "description": "Professional home cleaning services with verified cleaners",
+        "features": ["Deep cleaning", "Regular maintenance", "Eco-friendly products"],
+        "availability": "Same day",
+        "price": "₹300-500"
+      },
+      "plumbing": {
+        "title": "Plumbing Services",
+        "category": "Technical",
+        "description": "Expert plumbers for all your water and drainage needs",
+        "features": ["Pipe repair", "Installation", "Emergency fixes"],
+        "availability": "24/7 Emergency",
+        "price": "₹200-800"
+      },
+      "electrical": {
+        "title": "Electrical Work",
+        "category": "Technical",
+        "description": "Licensed electricians for safe electrical solutions",
+        "features": ["Wiring", "Appliance repair", "Safety checks"],
+        "availability": "Same day",
+        "price": "₹250-1000"
+      },
+      "painting": {
+        "title": "House Painting",
+        "category": "Home Services",
+        "description": "Professional painters for interior and exterior work",
+        "features": ["Interior painting", "Exterior painting", "Texture work"],
+        "availability": "2-3 days",
+        "price": "₹15-25/sq ft"
+      },
+      "carpentry": {
+        "title": "Carpentry",
+        "category": "Construction",
+        "description": "Skilled carpenters for furniture and woodwork",
+        "features": ["Furniture repair", "Custom work", "Installation"],
+        "availability": "1-2 days",
+        "price": "₹400-1200"
+      },
+      "gardening": {
+        "title": "Gardening",
+        "category": "Home Services",
+        "description": "Garden maintenance and landscaping experts",
+        "features": ["Plant care", "Landscaping", "Pest control"],
+        "availability": "Next day",
+        "price": "₹300-600"
+      },
+      "acRepair": {
+        "title": "AC Repair",
+        "category": "Technical",
+        "description": "Professional AC installation and repair services",
+        "features": ["Repair", "Installation", "Maintenance"],
+        "availability": "Same day",
+        "price": "₹350-1500"
+      },
+      "construction": {
+        "title": "Construction Labor",
+        "category": "Construction",
+        "description": "Skilled construction workers for all building needs",
+        "features": ["Skilled labor", "Team available", "Tools included"],
+        "availability": "2-3 days",
+        "price": "₹500-800/day"
+      },
+      "beauty": {
+        "title": "Beauty Services",
+        "category": "Personal Care",
+        "description": "Professional beauty and grooming services at home",
+        "features": ["Hair styling", "Makeup", "Skincare"],
+        "availability": "Same day",
+        "price": "₹500-2000"
+      }
+    },
+    "ctaButton": "View Workers",
+    "workersLabel": "{{count}} workers",
+    "availabilityLabel": "Availability"
+  },
+  "workersPage": {
+    "title": "Find Workers",
+    "subtitle": "Browse and hire verified professionals in your area",
+    "searchPlaceholder": "Search workers or skills...",
+    "cityPlaceholder": "Select city",
+    "skillPlaceholder": "Select skill",
+    "sortPlaceholder": "Sort by",
+    "sort": {
+      "rating": "Highest Rated",
+      "reviews": "Most Reviews",
+      "priceLow": "Price: Low to High",
+      "priceHigh": "Price: High to Low"
+    },
+    "available": "Available",
+    "busy": "Busy",
+    "moreSkills": "+{{count}} more",
+    "jobsCompleted": "{{count}} jobs",
+    "ratePerHour": "₹{{amount}}/hour",
+    "viewProfile": "View Profile",
+    "noResults": "No workers found matching your criteria.",
+    "clearFilters": "Clear Filters"
+  },
+  "bookingsPage": {
+    "title": "My Bookings",
+    "subtitle": "Track and manage your service bookings",
+    "tabs": {
+      "all": "All",
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "byWorker": "by {{worker}}",
+    "bookNow": "Book a Service",
+    "viewDetails": "View Details",
+    "noBookings": "No {{status}} bookings found."
+  },
+  "bookingDetails": {
+    "title": "Booking Details",
+    "bookingId": "Booking ID",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "in-progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "workerDetails": "Worker Details",
+    "scheduleLocation": "Schedule & Location",
+    "date": "Date",
+    "time": "Time",
+    "serviceLocation": "Service Location",
+    "requirements": "Requirements",
+    "paymentSummary": "Payment Summary",
+    "serviceCharge": "Service Charge",
+    "tax": "Tax (GST)",
+    "convenienceFee": "Convenience Fee",
+    "discount": "Discount",
+    "totalAmount": "Total Amount",
+    "paymentStatus": "Payment {{status}}",
+    "actions": "Actions",
+    "messageWorker": "Message Worker",
+    "reschedule": "Reschedule",
+    "cancelBooking": "Cancel Booking",
+    "rateReview": "Rate & Review",
+    "downloadInvoice": "Download Invoice",
+    "timeline": "Booking Timeline"
+  },
+  "bookService": {
+    "title": "Book Service",
+    "subtitle": "Complete your booking in 3 simple steps",
+    "steps": {
+      "serviceDetails": "Service Details",
+      "workerSelection": "Worker Selection",
+      "payment": "Payment"
+    },
+    "selectedWorker": "Selected Worker",
+    "scheduleService": "Schedule Service",
+    "selectDate": "Select Date",
+    "selectTime": "Select Time",
+    "emergencyService": "Emergency Service (+₹100)",
+    "serviceAddress": "Service Address",
+    "streetAddress": "Street Address",
+    "area": "Area/Locality",
+    "city": "City",
+    "state": "State",
+    "pincode": "Pincode",
+    "serviceDetails": "Service Details",
+    "describeRequirements": "Describe your requirements",
+    "specialRequirements": "Special Requirements (Optional)",
+    "contactInformation": "Contact Information",
+    "contactPerson": "Contact Person",
+    "phoneNumber": "Phone Number",
+    "alternatePhone": "Alternate Phone (Optional)",
+    "continue": "Continue to Worker Selection",
+    "pricing": {
+      "serviceCharge": "Service Charge",
+      "tax": "Tax (18%)",
+      "convenienceFee": "Convenience Fee",
+      "total": "Total"
+    },
+    "bookNow": "Confirm Booking",
+    "back": "Back",
+    "rating": "{{rating}} ({{count}} reviews)",
+    "experience": "{{years}} experience",
+    "available": "Available {{when}}",
+    "callWorker": "Call",
+    "messageWorker": "Message"
+  }
+}

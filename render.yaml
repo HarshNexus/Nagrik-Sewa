@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: METRICS_AUTH_TOKEN
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: REQUEST_BODY_LIMIT
+        value: 10mb
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX
+        value: 100
+      - key: AUTH_RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: AUTH_RATE_LIMIT_MAX
+        value: 5
+      - key: OTP_RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: OTP_RATE_LIMIT_MAX
+        value: 1
+      - key: MAX_FILE_SIZE
+        value: 5242880
+      - key: DB_CONNECT_RETRIES
+        value: 3
+      - key: DB_RETRY_DELAY_MS
+        value: 2000
+      - key: ENABLE_SYSTEM_ADMIN_LOGIN
+        value: false
+      - key: ENABLE_ADMIN_BOOTSTRAP
+        value: false

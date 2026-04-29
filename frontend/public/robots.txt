@@ -1,0 +1,66 @@
+# Robots.txt for Nagrik Sewa - Professional Home Services Platform
+
+# Allow all major search engines
+User-agent: *
+Allow: /
+
+# Specific rules for major search engines
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1
+
+# Social media crawlers
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+# Disallow admin and API endpoints
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/private/
+Disallow: /*.json$
+Disallow: /search?
+
+# Allow important pages
+Allow: /
+Allow: /services
+Allow: /workers
+Allow: /demo
+Allow: /about
+Allow: /contact
+
+# Sitemap location
+Sitemap: https://nagriksewa.com/sitemap.xml
+
+# Additional SEO directives
+# Crawl important pages more frequently
+User-agent: Googlebot
+Allow: /services
+Allow: /workers
+Allow: /demooglebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: *
+Allow: /

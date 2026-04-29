@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /**
+   * Tailwind CSS theme
+   * tailwind.config.ts expects the following color variables to be expressed as HSL values.
+   * A different format will require also updating the theme in tailwind.config.ts.
+  */
+  :root {
+    --background: 0 0% 99%;
+    --foreground: 220 26% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 26% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 26% 14%;
+
+    --primary: 142 72% 29%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 142 15% 96%;
+    --secondary-foreground: 142 72% 29%;
+
+    --muted: 220 13% 95%;
+    --muted-foreground: 220 14% 46%;
+
+    --accent: 39 100% 57%;
+    --accent-foreground: 220 26% 14%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 142 72% 29%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Language-specific font families */
+    --font-family-en: 'Inter', sans-serif;
+    --font-family-hi: 'Noto Sans Devanagari', 'Inter', sans-serif;
+    --font-family-bn: 'Noto Sans Bengali', 'Inter', sans-serif;
+    --font-family-ta: 'Noto Sans Tamil', 'Inter', sans-serif;
+    --font-family-te: 'Noto Sans Telugu', 'Inter', sans-serif;
+    --font-family-mr: 'Noto Sans Devanagari', 'Inter', sans-serif;
+    --font-family-gu: 'Noto Sans Gujarati', 'Inter', sans-serif;
+    --font-family-kn: 'Noto Sans Kannada', 'Inter', sans-serif;
+    --font-family-ml: 'Noto Sans Malayalam', 'Inter', sans-serif;
+    --font-family-or: 'Noto Sans Oriya', 'Inter', sans-serif;
+    --font-family-pa: 'Noto Sans Gurmukhi', 'Inter', sans-serif;
+    --font-family-as: 'Noto Sans Bengali', 'Inter', sans-serif;
+    --font-family-ur: 'Noto Serif Devanagari', 'Inter', sans-serif;
+    
+    /* Current active font family - defaults to English */
+    --current-font-family: var(--font-family-en);
+  }
+
+  .dark {
+    --background: 220 27% 8%;
+    --foreground: 0 0% 95%;
+
+    --card: 220 27% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 220 27% 10%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 142 84% 47%;
+    --primary-foreground: 220 27% 8%;
+
+    --secondary: 220 27% 16%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 220 27% 16%;
+    --muted-foreground: 220 14% 70%;
+
+    --accent: 39 100% 65%;
+    --accent-foreground: 220 27% 8%;
+
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 95%;
+
+    --border: 220 27% 16%;
+    --input: 220 27% 16%;
+    --ring: 142 84% 47%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--current-font-family);
+  }
+
+  /* Apply font to all major elements */
+  h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, select, label {
+    font-family: var(--current-font-family);
+  }
+
+  /* Language-specific body classes for additional customization */
+  body.lang-hi, body.lang-mr, body.lang-ur {
+    line-height: 1.7; /* Better line height for Devanagari scripts */
+  }
+
+  body.lang-bn, body.lang-as {
+    line-height: 1.6; /* Optimized for Bengali script */
+  }
+
+  body.lang-ta, body.lang-te, body.lang-kn, body.lang-ml {
+    line-height: 1.65; /* Better for South Indian scripts */
+  }
+
+  body.lang-gu {
+    line-height: 1.6; /* Optimized for Gujarati script */
+  }
+
+  body.lang-or {
+    line-height: 1.65; /* Optimized for Odia script */
+  }
+
+  body.lang-pa {
+    line-height: 1.6; /* Optimized for Gurmukhi script */
+  }
+
+  body.lang-ur {
+    text-align: right; /* RTL support for Urdu */
+    direction: rtl;
+  }
+
+  /* Ensure English and other LTR languages are left-to-right */
+  body.lang-en, body.lang-hi, body.lang-bn, body.lang-ta, body.lang-te, 
+  body.lang-mr, body.lang-gu, body.lang-kn, body.lang-ml, body.lang-or, 
+  body.lang-pa, body.lang-as {
+    text-align: left;
+    direction: ltr;
+  }
+}
