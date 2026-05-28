@@ -285,9 +285,16 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  console.error('Error:', error);
+  console.error('[ERROR-HANDLER] Error caught:', {
+    name: error.name,
+    code: error.code,
+    message: error.message,
+    path: req.path
+  });
 
-  // Mongoose validation error
+  // ============================================================================
+  // MONGOOSE VALIDATION ERROR
+  // ============================================================================
   if (error.name === 'ValidationError') {
     const errors = Object.values(error.errors).map((err: any) => ({
       field: err.path,
@@ -296,27 +303,43 @@ export const errorHandler = (
 
     res.status(400).json({
       success: false,
-      message: 'Validation error',
+      message: 'Validation failed',
       errors
     });
     return;
   }
 
-  // Mongoose duplicate key error
+  // ============================================================================
+  // MONGOOSE DUPLICATE KEY ERROR (E11000)
+  // Convert to user-friendly message
+  // ============================================================================
   if (error.code === 11000) {
-    const field = Object.keys(error.keyPattern)[0];
+    const field = Object.keys(error.keyPattern || {})[0];
+    let message = 'This value is already registered.';
+    
+    if (field === 'email') {
+      message = 'Email already registered. Please use another email or login.';
+    } else if (field === 'phone') {
+      message = 'Phone number already registered. Please use another number.';
+    } else if (field === 'username') {
+      message = 'Username is already taken.';
+    }
+
     res.status(409).json({
       success: false,
-      message: `${field} already exists`
+      message,
+      field
     });
     return;
   }
 
-  // JWT errors
+  // ============================================================================
+  // JWT ERRORS
+  // ============================================================================
   if (error.name === 'JsonWebTokenError') {
     res.status(401).json({
       success: false,
-      message: 'Invalid token'
+      message: 'Invalid authentication token'
     });
     return;
   }
@@ -324,15 +347,32 @@ export const errorHandler = (
   if (error.name === 'TokenExpiredError') {
     res.status(401).json({
       success: false,
-      message: 'Token expired'
+      message: 'Authentication token has expired. Please login again.'
     });
     return;
   }
 
-  // Default error
-  res.status(error.statusCode || 500).json({
+  // ============================================================================
+  // CAST ERROR (Invalid ObjectId)
+  // ============================================================================
+  if (error.name === 'CastError') {
+    res.status(400).json({
+      success: false,
+      message: 'Invalid ID format'
+    });
+    return;
+  }
+
+  // ============================================================================
+  // DEFAULT ERROR RESPONSE
+  // ============================================================================
+  const statusCode = error.statusCode || error.status || 500;
+  const message = error.message || 'An error occurred. Please try again.';
+
+  res.status(statusCode).json({
     success: false,
-    message: error.message || 'Internal server error'
+    message,
+    ...(process.env.NODE_ENV !== 'production' && { error: error.message })
   });
 };
 

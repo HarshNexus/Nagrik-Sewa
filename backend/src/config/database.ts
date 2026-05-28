@@ -19,9 +19,27 @@ class Database {
   }
 
   private getMongoUri(): string | undefined {
-    const configuredUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+    let configuredUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+    
     if (configuredUri?.trim()) {
-      return configuredUri.trim();
+      const uri = configuredUri.trim();
+      
+      // CRITICAL: Ensure the database name is included in the connection string
+      // Production MongoDB Atlas URIs should end with /nagrik-sewa
+      if (!uri.includes('/nagrik-sewa')) {
+        // If it doesn't have the database name, append it
+        if (uri.endsWith('/')) {
+          configuredUri = uri + 'nagrik-sewa';
+        } else if (!uri.includes('?')) {
+          configuredUri = uri + '/nagrik-sewa';
+        } else {
+          // Has query parameters but no database name - this is an error
+          console.warn('⚠️  WARNING: MongoDB URI may not have explicit database name');
+        }
+      }
+      
+      console.log('[DB] MongoDB URI configured (database: nagrik-sewa)');
+      return configuredUri;
     }
 
     if (process.env.NODE_ENV === 'development') {
@@ -66,18 +84,21 @@ class Database {
 
   public async connect(): Promise<void> {
     if (this.isConnected && mongoose.connection.readyState === 1) {
+      console.log('[DB] Already connected to MongoDB');
       return;
     }
 
     const shouldSkip = process.env.SKIP_DB_CONNECTION === 'true';
     if (shouldSkip) {
-      console.warn('Skipping MongoDB connection because SKIP_DB_CONNECTION=true');
+      console.warn('[DB] Skipping MongoDB connection because SKIP_DB_CONNECTION=true');
       return;
     }
 
     const mongoUri = this.getMongoUri();
     if (!mongoUri) {
-      throw new Error('MONGODB_URI is not defined');
+      const error = 'MONGODB_URI environment variable is not defined';
+      console.error('[DB] CRITICAL ERROR:', error);
+      throw new Error(error);
     }
 
     mongoose.set('bufferCommands', false);
@@ -86,18 +107,40 @@ class Database {
     const retryDelayMs = parsePositiveInt(process.env.DB_RETRY_DELAY_MS, 2000);
     let lastError: unknown;
 
+    console.log('[DB] Attempting to connect to MongoDB...');
+    console.log('[DB] Environment:', {
+      env: process.env.NODE_ENV,
+      dbName: 'nagrik-sewa',
+      maxRetries,
+      retryDelayMs
+    });
+
     for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
       try {
+        console.log(`[DB] Connection attempt ${attempt}/${maxRetries}...`);
         await mongoose.connect(mongoUri, this.getConnectionOptions());
         this.isConnected = true;
         this.bindConnectionEvents();
-        console.log('MongoDB connected successfully');
+        
+        const dbName = mongoose.connection.db?.databaseName || 'unknown';
+        console.log('✅ [DB] MongoDB connected successfully', {
+          database: dbName,
+          readyState: mongoose.connection.readyState,
+          host: mongoose.connection.host,
+          port: mongoose.connection.port
+        });
         return;
       } catch (error) {
         lastError = error;
         this.isConnected = false;
 
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[DB] Connection attempt ${attempt}/${maxRetries} failed:`, errorMessage);
+
         if (attempt >= maxRetries) {
+          const failureMessage = `MongoDB connection failed after ${maxRetries} attempts. ${errorMessage}`;
+          console.error('❌ [DB] CRITICAL:', failureMessage);
+          throw new Error(failureMessage);
           break;
         }
 

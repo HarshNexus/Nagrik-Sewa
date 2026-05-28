@@ -389,45 +389,89 @@ router.post('/register', async (req, res) => {
     });
 
     // ========================================================================
-    // STEP 5: GENERATE OTP
+    // STEP 5: VALIDATE FOR DUPLICATES BEFORE OTP
     // ========================================================================
-    console.log('[REGISTER] Generating OTP...');
-    const otp = Math.floor(100000 + Math.random() * 900000);
-    console.log('OTP:', otp);
+    // Check if email/phone already exist (helps provide better error messages)
+    const emailExists = await User.findOne({ email: savedUser.email }).select('email');
+    const phoneExists = await User.findOne({ phone: savedUser.phone }).select('phone');
+    
+    if (emailExists || phoneExists) {
+      console.log('[REGISTER] Duplicate found after save:', { emailExists: !!emailExists, phoneExists: !!phoneExists });
+      // Delete the user we just created to maintain data integrity
+      await User.findByIdAndDelete(savedUser._id);
+      
+      if (emailExists) {
+        return res.status(409).json({
+          success: false,
+          message: 'Email already registered. Please use another email or login.'
+        });
+      }
+      if (phoneExists) {
+        return res.status(409).json({
+          success: false,
+          message: 'Phone number already registered. Please use another number.'
+        });
+      }
+    }
+
+    console.log('[REGISTER] Duplicate check passed');
 
     // ========================================================================
-    // STEP 6: SEND OTP VIA EMAIL
+    // STEP 6: GENERATE AND SAVE OTP (CRITICAL FIX)
+    // ========================================================================
+    console.log('[REGISTER] Generating and saving OTP...');
+    const emailOTP = savedUser.generateEmailOTP(); // This sets emailVerificationOTP and emailOTPExpiry
+    await savedUser.save(); // Save OTP to database
+    console.log('[REGISTER] OTP generated and saved:', { 
+      email: savedUser.email,
+      otpExpiry: savedUser.emailOTPExpiry 
+    });
+
+    // ========================================================================
+    // STEP 7: SEND OTP VIA EMAIL
     // ========================================================================
     console.log('[REGISTER] Sending OTP to:', savedUser.email);
 
+    let emailSent = false;
     try {
-      await sendEmail({
+      const emailResult = await sendEmail({
         to: savedUser.email,
         subject: 'Verify Your Email - Nagrik Sewa OTP',
         template: 'email-otp',
         data: {
           name: savedUser.firstName,
-          otp: otp.toString(),
+          otp: emailOTP,
           expiresIn: '10 minutes'
         }
       });
-      console.log('[REGISTER] OTP sent successfully');
+      emailSent = emailResult?.success !== false;
+      console.log('[REGISTER] OTP email sent:', { success: emailSent });
     } catch (emailError: any) {
       console.error('[REGISTER] OTP email error:', emailError.message);
       // Continue - don't fail registration if email fails
     }
 
+    // Log OTP in development mode
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n' + '═'.repeat(70));
+      console.log('🔐 OTP FOR EMAIL VERIFICATION (DEVELOPMENT MODE)');
+      console.log('═'.repeat(70));
+      console.log(`Email: ${savedUser.email}`);
+      console.log(`OTP Code: ${emailOTP}`);
+      console.log(`Expires at: ${savedUser.emailOTPExpiry}`);
+      console.log('═'.repeat(70) + '\n');
+    }
+
     // ========================================================================
-    // STEP 7: RETURN SUCCESS RESPONSE
+    // STEP 8: RETURN SUCCESS RESPONSE
     // ========================================================================
     console.log('[REGISTER] Registration successful');
     
     return res.status(201).json({
       success: true,
       message: role === "worker" 
-        ? "Worker registered successfully" 
-        : "User registered successfully",
-      role: role,
+        ? "Worker registered successfully. Please verify your email."
+        : "Registration successful! Please verify your email with the OTP sent.",
       data: {
         user: {
           id: savedUser._id,
@@ -435,22 +479,45 @@ router.post('/register', async (req, res) => {
           lastName: savedUser.lastName,
           email: savedUser.email,
           phone: savedUser.phone,
-          role: savedUser.role || role
-        },
-        collection: role === "worker" ? "workerprofiles" : "users"
+          role: savedUser.role || role,
+          isEmailVerified: false
+        }
       }
     });
 
   } catch (error) {
     // ========================================================================
-    // STEP 8: ERROR HANDLING
+    // STEP 9: PRODUCTION-SAFE ERROR HANDLING
     // ========================================================================
     console.error("REGISTER ERROR:", error instanceof Error ? error.message : String(error));
-    console.error("Full error:", error);
     
+    // Handle duplicate key errors (E11000)
+    if ((error as any)?.code === 11000) {
+      const field = Object.keys((error as any)?.keyPattern || {})[0];
+      const fieldName = field === 'email' ? 'Email' : field === 'phone' ? 'Phone number' : field;
+      
+      return res.status(409).json({
+        success: false,
+        message: `${fieldName} already registered. Please use another ${fieldName.toLowerCase()} or login.`
+      });
+    }
+
+    // Handle validation errors
+    if ((error as any)?.name === 'ValidationError') {
+      const errors = Object.values((error as any)?.errors || {}).map((err: any) => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+
+    // Handle generic errors
+    const message = error instanceof Error ? error.message : 'Registration failed. Please try again.';
     return res.status(500).json({
       success: false,
-      message: error instanceof Error ? error.message : "Internal Server Error"
+      message,
+      ...(process.env.NODE_ENV !== 'production' && { error: error instanceof Error ? error.message : String(error) })
     });
   }
 });
