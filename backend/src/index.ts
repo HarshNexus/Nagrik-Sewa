@@ -37,7 +37,7 @@ import {
 dotenv.config();
 
 const corsOptions = {
-  origin: ["https://nagrik-sewa-fe1j.onrender.com", "http://localhost:5173", "http://localhost:8080"],
+  origin: ["https://nagrik-sewa.onrender.com", "https://nagrik-sewa-api.onrender.com", "http://localhost:5173", "http://localhost:8080"],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
   allowedHeaders: ["Content-Type", "Authorization"],
