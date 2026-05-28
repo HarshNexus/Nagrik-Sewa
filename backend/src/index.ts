@@ -153,6 +153,17 @@ export async function createServer() {
     }
   });
 
+  // Debug endpoint for database connection
+  app.get("/debug-db", (_req, res) => {
+    res.json({
+      db: mongoose.connection.name,
+      uri: process.env.MONGODB_URI
+        ?.replace(/\/\/.*:.*@/, "//***:***@"),
+      collections: mongoose.connection.collections ? Object.keys(mongoose.connection.collections) : [],
+      isConnected: mongoose.connection.readyState === 1,
+    });
+  });
+
   // API routes
   app.get("/api/ping", (_req, res) => {
     const ping = process.env.PING_MESSAGE ?? "ping";
