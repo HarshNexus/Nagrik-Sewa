@@ -189,20 +189,6 @@ export async function createServer() {
   // Serve static files from public directory
   app.use(express.static("public"));
 
-  // In production, serve the built React app
-  if (process.env.NODE_ENV === "production") {
-    app.use(express.static("dist/spa"));
-
-    // Handle client-side routing - serve index.html for all non-API routes
-    app.get("*", (req, res) => {
-      if (!req.path.startsWith("/api")) {
-        res.sendFile(path.resolve("dist/spa/index.html"));
-      } else {
-        res.status(404).json({ success: false, message: `Route ${req.path} not found` });
-      }
-    });
-  }
-
   // 404 handler for API routes only
   app.use("/api/*", notFound);
 
