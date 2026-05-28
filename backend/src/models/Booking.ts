@@ -128,29 +128,29 @@ export interface IBooking extends Document {
   
   // Reviews and Rating
   review?: {
-    customerReview: {
-      rating: number;
-      comment: string;
-      categories: {
-        quality: number;
-        punctuality: number;
-        communication: number;
-        pricing: number;
-        professionalism: number;
+    customerReview?: {
+      rating?: number;
+      comment?: string;
+      categories?: {
+        quality?: number;
+        punctuality?: number;
+        communication?: number;
+        pricing?: number;
+        professionalism?: number;
       };
       images?: string[];
-      reviewedAt: Date;
+      reviewedAt?: Date;
     };
-    workerReview: {
-      rating: number;
-      comment: string;
-      categories: {
-        clarity: number;
-        payment: number;
-        cooperation: number;
-        location: number;
+    workerReview?: {
+      rating?: number;
+      comment?: string;
+      categories?: {
+        clarity?: number;
+        payment?: number;
+        cooperation?: number;
+        location?: number;
       };
-      reviewedAt: Date;
+      reviewedAt?: Date;
     };
   };
   

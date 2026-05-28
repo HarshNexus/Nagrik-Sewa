@@ -1,8 +1,6 @@
-import { IUser } from "../models/User";
-
-declare global {
-  namespace Express {
-    interface User extends IUser {}
+declare namespace Express {
+  export interface Request {
+    user?: any;
   }
 }
 
