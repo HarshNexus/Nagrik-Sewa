@@ -298,6 +298,27 @@ router.post('/register', async (req, res) => {
       const normalizedEmail = req.body.email.toString().toLowerCase().trim();
       const normalizedPhone = req.body.phone.toString().replace(/[^\d]/g, '').slice(-10);
 
+      // ✅ CHECK FOR DUPLICATES BEFORE SAVING (in WorkerProfile collection)
+      console.log('[REGISTER] Checking for duplicate worker email/phone...');
+      const workerEmailExists = await WorkerProfile.findOne({ email: normalizedEmail }).select('email');
+      const workerPhoneExists = await WorkerProfile.findOne({ phone: normalizedPhone }).select('phone');
+
+      if (workerEmailExists) {
+        console.log('[REGISTER] Worker email already exists:', normalizedEmail);
+        return res.status(409).json({
+          success: false,
+          message: 'Email already registered. Please use another email or login.'
+        });
+      }
+
+      if (workerPhoneExists) {
+        console.log('[REGISTER] Worker phone already exists:', normalizedPhone);
+        return res.status(409).json({
+          success: false,
+          message: 'Phone number already registered. Please use another number.'
+        });
+      }
+
       const workerData = {
         firstName: req.body.firstName || "Worker",
         lastName: req.body.lastName || "",
@@ -337,6 +358,27 @@ router.post('/register', async (req, res) => {
 
       const normalizedEmail = req.body.email.toString().toLowerCase().trim();
       const normalizedPhone = req.body.phone.toString().replace(/[^\d]/g, '').slice(-10);
+
+      // ✅ CHECK FOR DUPLICATES BEFORE SAVING
+      console.log('[REGISTER] Checking for duplicate email/phone...');
+      const emailExists = await User.findOne({ email: normalizedEmail }).select('email');
+      const phoneExists = await User.findOne({ phone: normalizedPhone }).select('phone');
+
+      if (emailExists) {
+        console.log('[REGISTER] Email already exists:', normalizedEmail);
+        return res.status(409).json({
+          success: false,
+          message: 'Email already registered. Please use another email or login.'
+        });
+      }
+
+      if (phoneExists) {
+        console.log('[REGISTER] Phone already exists:', normalizedPhone);
+        return res.status(409).json({
+          success: false,
+          message: 'Phone number already registered. Please use another number.'
+        });
+      }
 
       const userData = {
         firstName: req.body.firstName || "Customer",
@@ -389,35 +431,7 @@ router.post('/register', async (req, res) => {
     });
 
     // ========================================================================
-    // STEP 5: VALIDATE FOR DUPLICATES BEFORE OTP
-    // ========================================================================
-    // Check if email/phone already exist (helps provide better error messages)
-    const emailExists = await User.findOne({ email: savedUser.email }).select('email');
-    const phoneExists = await User.findOne({ phone: savedUser.phone }).select('phone');
-    
-    if (emailExists || phoneExists) {
-      console.log('[REGISTER] Duplicate found after save:', { emailExists: !!emailExists, phoneExists: !!phoneExists });
-      // Delete the user we just created to maintain data integrity
-      await User.findByIdAndDelete(savedUser._id);
-      
-      if (emailExists) {
-        return res.status(409).json({
-          success: false,
-          message: 'Email already registered. Please use another email or login.'
-        });
-      }
-      if (phoneExists) {
-        return res.status(409).json({
-          success: false,
-          message: 'Phone number already registered. Please use another number.'
-        });
-      }
-    }
-
-    console.log('[REGISTER] Duplicate check passed');
-
-    // ========================================================================
-    // STEP 6: GENERATE AND SAVE OTP (CRITICAL FIX)
+    // STEP 5: GENERATE AND SAVE OTP
     // ========================================================================
     console.log('[REGISTER] Generating and saving OTP...');
     const emailOTP = savedUser.generateEmailOTP(); // This sets emailVerificationOTP and emailOTPExpiry
@@ -428,7 +442,7 @@ router.post('/register', async (req, res) => {
     });
 
     // ========================================================================
-    // STEP 7: SEND OTP VIA EMAIL
+    // STEP 6: SEND OTP VIA EMAIL
     // ========================================================================
     console.log('[REGISTER] Sending OTP to:', savedUser.email);
 
@@ -463,7 +477,7 @@ router.post('/register', async (req, res) => {
     }
 
     // ========================================================================
-    // STEP 8: RETURN SUCCESS RESPONSE
+    // STEP 7: RETURN SUCCESS RESPONSE
     // ========================================================================
     console.log('[REGISTER] Registration successful');
     
@@ -487,7 +501,7 @@ router.post('/register', async (req, res) => {
 
   } catch (error) {
     // ========================================================================
-    // STEP 9: PRODUCTION-SAFE ERROR HANDLING
+    // STEP 8: PRODUCTION-SAFE ERROR HANDLING
     // ========================================================================
     console.error("REGISTER ERROR:", error instanceof Error ? error.message : String(error));
     
