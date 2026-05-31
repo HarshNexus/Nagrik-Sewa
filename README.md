@@ -179,9 +179,8 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # Optional - Communication Services
-EMAIL_HOST=smtp.gmail.com
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-app-specific-password
+RESEND_API_KEY=your-resend-api-key
+EMAIL_FROM="Nagrik Sewa" <noreply@nagriksewa.com>
 TWILIO_ACCOUNT_SID=your-twilio-sid
 TWILIO_AUTH_TOKEN=your-twilio-token
 
@@ -203,6 +202,7 @@ FRONTEND_URL=http://localhost:8080
 | MongoDB Atlas | Database | [Setup Guide](https://www.mongodb.com/docs/atlas/getting-started/) |
 | Google OAuth | Social Login | [OAuth Setup](https://console.cloud.google.com/) |
 | Google Gemini | AI Chatbot | [AI Studio](https://makersuite.google.com/) |
+| Resend | Email Service | [Documentation](https://resend.com/docs) |
 | Twilio | SMS/OTP | [Twilio Console](https://console.twilio.com/) |
 | Razorpay | Payments | [Dashboard](https://dashboard.razorpay.com/) |
 | DigiLocker | ID Verification | [API Portal](https://api.digitallocker.gov.in/) |
@@ -536,7 +536,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - **AI**: Google Gemini AI
 - **UI Components**: shadcn/ui, Radix UI
 - **Payments**: Razorpay
-- **Communication**: Twilio, EmailJS
+- **Communication**: Twilio, Resend
 - **Deployment**: Vercel, Netlify
 
 ### **Special Thanks**

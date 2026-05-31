@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { sendEmail } from '../services/email';
 
 const router = Router();
 
@@ -37,6 +38,52 @@ router.get('/test', async (req: Request, res: Response): Promise<void> => {
       success: false,
       message: 'Failed to connect to Gemini AI',
       error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Test endpoint to verify Resend email integration
+router.get('/test-email', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const testEmail = process.env.SUPPORT_EMAIL || 'test@example.com';
+    
+    console.log('[TEST-EMAIL] Starting email test');
+    console.log(`[TEST-EMAIL] Sending test email to: ${testEmail}`);
+
+    const result = await sendEmail({
+      to: testEmail,
+      subject: 'Nagrik Sewa - Email Service Test',
+      template: 'email-otp',
+      data: {
+        name: 'Test User',
+        otp: '123456'
+      }
+    });
+
+    if (result.success) {
+      console.log('[TEST-EMAIL] ✅ Email sent successfully');
+      res.json({
+        success: true,
+        message: 'Test email sent successfully',
+        messageId: result.messageId,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.error('[TEST-EMAIL] ❌ Email sending failed:', result.error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send test email',
+        error: result.error,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error('[TEST-EMAIL] Unexpected error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test email error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
     });
   }
 });
