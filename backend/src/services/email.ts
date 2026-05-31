@@ -13,15 +13,40 @@ export interface EmailOptions {
 
 // Nodemailer transporter for production emails
 let transporter: nodemailer.Transporter | null = null;
+let transporterVerified = false;
 
 const createTransporter = () => {
   if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    const port = parseInt(process.env.EMAIL_PORT || '587', 10);
+    const secure = port === 465; // Use TLS for port 465, STARTTLS for 587
+    
+    console.log(`[EMAIL] Initializing Nodemailer transporter:`);
+    console.log(`[EMAIL]   Host: ${process.env.EMAIL_HOST}`);
+    console.log(`[EMAIL]   Port: ${port}`);
+    console.log(`[EMAIL]   Secure (SSL): ${secure}`);
+    console.log(`[EMAIL]   User: ${process.env.EMAIL_USER}`);
+    
     return nodemailer.createTransport({
-      service: 'gmail', // Use Gmail service directly
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: port,
+      secure: secure,
+      requireTLS: !secure, // Use STARTTLS for port 587
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      // Explicit timeout settings for Render compatibility
+      connectionTimeout: 10000,  // 10 seconds
+      greetingTimeout: 10000,    // 10 seconds
+      socketTimeout: 30000,      // 30 seconds for sending
+      pool: {
+        maxConnections: 5,
+        maxMessages: 100,
+        rateDelta: 1000,
+        rateLimit: 10,
+      },
+      logger: true, // Enable logging
+      debug: process.env.NODE_ENV !== 'production', // Debug mode in dev
     });
   }
   return null;
@@ -29,6 +54,31 @@ const createTransporter = () => {
 
 // Initialize transporter
 transporter = createTransporter();
+
+// Verify transporter connection on startup
+const verifyTransporter = async () => {
+  if (!transporter) {
+    console.warn('[EMAIL] Nodemailer transporter not initialized - no email credentials');
+    return;
+  }
+
+  try {
+    console.log('[EMAIL] Verifying SMTP connection...');
+    await transporter.verify();
+    transporterVerified = true;
+    console.log('✅ [EMAIL] SMTP connection verified successfully');
+  } catch (error) {
+    transporterVerified = false;
+    console.error('❌ [EMAIL] SMTP connection verification failed:', error instanceof Error ? error.message : String(error));
+    console.error('[EMAIL] Email sending may fail. Please check:');
+    console.error('[EMAIL]   1. EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS in .env');
+    console.error('[EMAIL]   2. Gmail app password (not regular password) if using Gmail');
+    console.error('[EMAIL]   3. Render firewall rules for SMTP (port 587/465)');
+  }
+};
+
+// Verify on startup
+verifyTransporter();
 
 // Email templates
 const getEmailTemplate = (template: string, data: any) => {
@@ -479,6 +529,11 @@ const getEmailTemplate = (template: string, data: any) => {
   return templates[template as keyof typeof templates] || '';
 };
 
+/**
+ * Sends an email asynchronously
+ * This function does NOT block - it returns immediately with logging
+ * Email is sent in the background on Render
+ */
 export const sendEmail = async (options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> => {
   try {
     let htmlContent = options.html;
@@ -490,46 +545,98 @@ export const sendEmail = async (options: EmailOptions): Promise<{ success: boole
 
     // Try Nodemailer first (production)
     if (transporter && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-      console.log('📧 Attempting to send email via Nodemailer to:', options.to);
+      console.log(`[EMAIL-SEND] Attempting to send email via Nodemailer`);
+      console.log(`[EMAIL-SEND]   To: ${options.to}`);
+      console.log(`[EMAIL-SEND]   Subject: ${options.subject}`);
+      console.log(`[EMAIL-SEND]   Template: ${options.template || 'custom'}`);
+      console.log(`[EMAIL-SEND]   SMTP: ${process.env.EMAIL_HOST}:${process.env.EMAIL_PORT}`);
       
-      const info = await transporter.sendMail({
-        from: process.env.EMAIL_FROM || `"Nagrik Sewa" <${process.env.EMAIL_USER}>`,
-        to: options.to,
-        subject: options.subject,
-        text: options.text,
-        html: htmlContent,
-        replyTo: options.replyTo,
-      });
+      if (!transporterVerified) {
+        console.warn(`[EMAIL-SEND]   ⚠️ Warning: SMTP connection was not verified on startup`);
+      }
 
-      console.log('✅ Email sent via Nodemailer:', info.messageId);
-      return { success: true, messageId: info.messageId };
+      try {
+        // Set a timeout for sendMail to prevent hanging on Render
+        const sendWithTimeout = new Promise<any>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Email send operation timed out after 30 seconds'));
+          }, 30000); // 30 second timeout
+
+          transporter!.sendMail({
+            from: process.env.EMAIL_FROM || `"Nagrik Sewa" <${process.env.EMAIL_USER}>`,
+            to: options.to,
+            subject: options.subject,
+            text: options.text,
+            html: htmlContent,
+            replyTo: options.replyTo,
+          }).then((info) => {
+            clearTimeout(timeout);
+            resolve(info);
+          }).catch((err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+
+        const info = await sendWithTimeout;
+        console.log(`✅ [EMAIL-SEND] Email sent successfully via Nodemailer`);
+        console.log(`[EMAIL-SEND]   Message ID: ${info.messageId}`);
+        return { success: true, messageId: info.messageId };
+      } catch (nodemailerError) {
+        const errorMsg = nodemailerError instanceof Error ? nodemailerError.message : String(nodemailerError);
+        console.error(`❌ [EMAIL-SEND] Nodemailer failed: ${errorMsg}`);
+        
+        // Log error details for debugging (without credentials)
+        if (errorMsg.includes('ETIMEDOUT') || errorMsg.includes('timeout')) {
+          console.error(`[EMAIL-SEND] TIMEOUT ERROR - Possible causes:`);
+          console.error(`[EMAIL-SEND]   • Render networking restrictions`);
+          console.error(`[EMAIL-SEND]   • SMTP server not responding`);
+          console.error(`[EMAIL-SEND]   • Firewall blocking port ${process.env.EMAIL_PORT}`);
+        }
+        
+        // Don't throw - return error and let registration continue
+        return { 
+          success: false, 
+          error: errorMsg
+        };
+      }
     }
 
     // Fallback to EmailJS (if configured)
     if (process.env.EMAILJS_PUBLIC_KEY) {
-      await emailjs.send(
-        process.env.EMAILJS_SERVICE_ID!,
-        process.env.EMAILJS_TEMPLATE_ID!,
-        {
-          to_email: options.to,
-          subject: options.subject,
-          message: options.text || htmlContent?.replace(/<[^>]*>/g, ''),
-        },
-        {
-          publicKey: process.env.EMAILJS_PUBLIC_KEY,
-        }
-      );
+      try {
+        console.log(`[EMAIL-SEND] Attempting to send email via EmailJS`);
+        await emailjs.send(
+          process.env.EMAILJS_SERVICE_ID!,
+          process.env.EMAILJS_TEMPLATE_ID!,
+          {
+            to_email: options.to,
+            subject: options.subject,
+            message: options.text || htmlContent?.replace(/<[^>]*>/g, ''),
+          },
+          {
+            publicKey: process.env.EMAILJS_PUBLIC_KEY,
+          }
+        );
 
-      console.log('✅ Email sent via EmailJS');
-      return { success: true };
+        console.log(`✅ [EMAIL-SEND] Email sent successfully via EmailJS`);
+        return { success: true };
+      } catch (emailjsError) {
+        console.error(`❌ [EMAIL-SEND] EmailJS failed:`, emailjsError instanceof Error ? emailjsError.message : String(emailjsError));
+        return { 
+          success: false, 
+          error: emailjsError instanceof Error ? emailjsError.message : 'EmailJS error'
+        };
+      }
     }
 
     // Development fallback - log to console
+    console.log('[EMAIL-SEND] No email provider configured - using development mode');
     console.log('📧 EMAIL NOTIFICATION (Development Mode)');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📧 To:', options.to);
     console.log('📧 Subject:', options.subject);
-    console.log('📧 Email sent successfully');
+    console.log('📧 Template:', options.template || 'custom');
     
     if (options.data?.verificationLink) {
       console.log('🔗 Verification Link:', options.data.verificationLink);
@@ -547,7 +654,7 @@ export const sendEmail = async (options: EmailOptions): Promise<{ success: boole
     return { success: true, messageId: 'dev-mode-' + Date.now() };
 
   } catch (error) {
-    console.error('❌ Email sending failed:', error);
+    console.error('[EMAIL-SEND] Unexpected error:', error instanceof Error ? error.message : String(error));
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 

@@ -229,6 +229,70 @@ async function checkPhoneExists(phone: string): Promise<{ exists: boolean; colle
   return { exists: false };
 }
 
+/**
+ * Send OTP email in the background without blocking the registration response
+ * This prevents the registration from hanging if email sending times out
+ */
+async function sendOTPEmailInBackground(user: any, otp: string): Promise<void> {
+  // Use a background task (fire and forget with error logging)
+  setImmediate(async () => {
+    try {
+      console.log(`[BACKGROUND-EMAIL] Starting OTP email send for ${user.email}`);
+      
+      const emailResult = await sendEmail({
+        to: user.email,
+        subject: 'Verify Your Email - Nagrik Sewa OTP',
+        template: 'email-otp',
+        data: {
+          name: user.firstName,
+          otp: otp,
+          expiresIn: '10 minutes'
+        }
+      });
+      
+      if (emailResult.success) {
+        console.log(`✅ [BACKGROUND-EMAIL] OTP email sent successfully to ${user.email}`);
+      } else {
+        console.error(`⚠️ [BACKGROUND-EMAIL] OTP email failed for ${user.email}:`, emailResult.error);
+        // Log to external monitoring service in production if available
+        // Example: sentryReporter.captureException(error)
+      }
+    } catch (error) {
+      console.error(`❌ [BACKGROUND-EMAIL] Unexpected error sending OTP to ${user.email}:`, error);
+    }
+  });
+}
+
+/**
+ * Send welcome email in the background without blocking the verification response
+ */
+async function sendWelcomeEmailInBackground(user: any): Promise<void> {
+  setImmediate(async () => {
+    try {
+      console.log(`[BACKGROUND-EMAIL] Starting welcome email send for ${user.email}`);
+      
+      const emailResult = await sendEmail({
+        to: user.email,
+        subject: 'Welcome to Nagrik Sewa - Account Verified',
+        template: 'welcome',
+        data: {
+          name: user.firstName,
+          email: user.email,
+          dashboardLink: process.env.CLIENT_URL ? `${process.env.CLIENT_URL}/dashboard` : 'https://nagriksewa.co.in/dashboard'
+        }
+      });
+      
+      if (emailResult.success) {
+        console.log(`✅ [BACKGROUND-EMAIL] Welcome email sent successfully to ${user.email}`);
+      } else {
+        console.error(`⚠️ [BACKGROUND-EMAIL] Welcome email failed for ${user.email}:`, emailResult.error);
+      }
+    } catch (error) {
+      console.error(`❌ [BACKGROUND-EMAIL] Unexpected error sending welcome email to ${user.email}:`, error);
+    }
+  });
+}
+
 // ============================================================================
 // REGISTER ENDPOINT - STRICT FLOW for WORKER and CUSTOMER
 // ============================================================================
@@ -442,28 +506,15 @@ router.post('/register', async (req, res) => {
     });
 
     // ========================================================================
-    // STEP 6: SEND OTP VIA EMAIL
+    // STEP 6: SEND OTP VIA EMAIL (NON-BLOCKING)
     // ========================================================================
-    console.log('[REGISTER] Sending OTP to:', savedUser.email);
-
-    let emailSent = false;
-    try {
-      const emailResult = await sendEmail({
-        to: savedUser.email,
-        subject: 'Verify Your Email - Nagrik Sewa OTP',
-        template: 'email-otp',
-        data: {
-          name: savedUser.firstName,
-          otp: emailOTP,
-          expiresIn: '10 minutes'
-        }
-      });
-      emailSent = emailResult?.success !== false;
-      console.log('[REGISTER] OTP email sent:', { success: emailSent });
-    } catch (emailError: any) {
-      console.error('[REGISTER] OTP email error:', emailError.message);
-      // Continue - don't fail registration if email fails
-    }
+    // CRITICAL: Do NOT await email sending - it would block the registration response
+    // Email is sent in the background without holding up the API response
+    
+    console.log('[REGISTER] Queuing OTP email to:', savedUser.email);
+    
+    // Send OTP email in background without blocking
+    sendOTPEmailInBackground(savedUser, emailOTP);
 
     // Log OTP in development mode
     if (process.env.NODE_ENV !== 'production') {
@@ -477,15 +528,15 @@ router.post('/register', async (req, res) => {
     }
 
     // ========================================================================
-    // STEP 7: RETURN SUCCESS RESPONSE
+    // STEP 7: RETURN SUCCESS RESPONSE (IMMEDIATELY)
     // ========================================================================
-    console.log('[REGISTER] Registration successful');
+    console.log('[REGISTER] Registration successful - responding to client immediately');
     
     return res.status(201).json({
       success: true,
       message: role === "worker" 
-        ? "Worker registered successfully. Please verify your email."
-        : "Registration successful! Please verify your email with the OTP sent.",
+        ? "Worker registered successfully. OTP is being sent to your email."
+        : "Registration successful! OTP is being sent to verify your email.",
       data: {
         user: {
           id: savedUser._id,
@@ -625,23 +676,9 @@ router.post('/verify-email-otp', async (req, res) => {
     const accessToken = generateToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Send welcome email after verification
-    try {
-      await sendEmail({
-        to: user.email,
-        subject: 'Welcome to Nagrik Sewa - Account Verified',
-        template: 'welcome',
-        data: {
-          name: user.firstName,
-          email: user.email,
-          dashboardLink: process.env.CLIENT_URL ? `${process.env.CLIENT_URL}/dashboard` : 'https://nagriksewa.co.in/dashboard'
-        }
-      });
-      console.log('[VERIFY-EMAIL-OTP] Welcome email sent to:', user.email);
-    } catch (emailError) {
-      console.error('[VERIFY-EMAIL-OTP] Failed to send welcome email:', emailError);
-      // Don't fail verification if welcome email fails
-    }
+    // Send welcome email in background (non-blocking)
+    console.log('[VERIFY-EMAIL-OTP] Queuing welcome email to:', user.email);
+    sendWelcomeEmailInBackground(user);
 
     res.json({
       success: true,
