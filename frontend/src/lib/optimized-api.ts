@@ -282,7 +282,7 @@ export const endpoints = {
     reviews: (id: string) => `/workers/${id}/reviews`,
   },
   chatbot: {
-    chat: '/chatbot/chat',
+    chat: '/chat/chat',
     history: '/chatbot/history',
     feedback: '/chatbot/feedback',
   },

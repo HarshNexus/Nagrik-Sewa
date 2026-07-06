@@ -131,9 +131,20 @@ export const ChatbotWidget: React.FC = () => {
     return languages[code] || 'English';
   };
 
+  const sanitizeMessageContent = (content: string) => {
+    return content
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/^[\s]*[-•]\s+/gm, '')
+      .replace(/^[\s]*\d+[.)]\s+/gm, '')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim();
+  };
+
   const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
     const isUser = message.role === 'user';
     const isRetryMessage = message.content.includes('🔄 Connection issue');
+    const displayContent = isUser ? message.content : sanitizeMessageContent(message.content);
 
     return (
       <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -155,7 +166,7 @@ export const ChatbotWidget: React.FC = () => {
                 ? 'bg-gray-100 text-gray-700'
                 : 'bg-white border border-gray-200 text-gray-800'
           }`}>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">{displayContent}</p>
             <p className={`text-xs mt-1 ${
               isUser ? 'text-brand-100' : 'text-gray-500'
             }`}>

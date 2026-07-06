@@ -42,7 +42,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
   const { language } = useLanguage();
 
   // Initialize chat session when opening chat
-  const initializeSession = useCallback(async () => {
+  const initializeSession = useCallback(async (): Promise<string | null> => {
     try {
       const newSessionId = await chatbotService.createChatSession(
         userType,
@@ -61,9 +61,16 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
         userType
       };
 
+      const session = chatbotService.getChatSession(newSessionId);
+      if (session) {
+        session.messages.push(welcomeMessage);
+      }
+
       setMessages([welcomeMessage]);
+      return newSessionId;
     } catch (error) {
       console.error('Failed to initialize chat session:', error);
+      return null;
     }
   }, [userType, language, user?._id]);
 
@@ -203,36 +210,29 @@ Ready to start your registration? I can walk you through each step.`
   }, []);
 
   const sendMessage = useCallback(async (message: string) => {
-    if (!sessionId || !message.trim()) return;
+    if (!message.trim()) return;
+
+    let activeSessionId = sessionId;
+    if (!activeSessionId || !chatbotService.getChatSession(activeSessionId)) {
+      activeSessionId = await initializeSession();
+      if (!activeSessionId) return;
+      setSessionId(activeSessionId);
+    }
 
     setIsLoading(true);
     let retryCount = 0;
     const maxRetries = 3;
     
-    // Add user message to UI immediately for better UX
-    const userMessage: ChatMessage = {
-      id: `temp_${Date.now()}`,
-      role: 'user',
-      content: message,
-      timestamp: new Date(),
-      language: language,
-      userType
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    
     const attemptSend = async (): Promise<void> => {
       try {
         // Send to AI service and get response
-        const response = await chatbotService.sendMessage(sessionId, message);
+        const response = await chatbotService.sendMessage(activeSessionId, message);
         
         // Update messages with actual response
-        setMessages(prev => {
-          // Remove temporary user message and add both actual user message and response
-          const withoutTemp = prev.filter(msg => msg.id !== userMessage.id);
-          const session = chatbotService.getChatSession(sessionId);
-          return session ? session.messages : withoutTemp;
-        });
+        const session = chatbotService.getChatSession(activeSessionId);
+        if (session) {
+          setMessages(session.messages);
+        }
         
       } catch (error) {
         console.error(`Message send attempt ${retryCount + 1} failed:`, error);
@@ -283,7 +283,7 @@ Ready to start your registration? I can walk you through each step.`
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, language, userType]);
+  }, [sessionId, language, userType, initializeSession]);
 
   // Determine error type for appropriate handling
   const getErrorType = (error: any): 'network' | 'api' | 'quota' | 'unknown' => {

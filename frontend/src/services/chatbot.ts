@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { api } from '@/lib/api';
 import { logger } from '@/lib/logger';
 
 export interface ChatMessage {
@@ -92,6 +93,16 @@ Respond in ${this.getLanguageName(language)}.`;
     return languages[code] || 'English';
   }
 
+  private sanitizeResponse(text: string): string {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/^[\s]*[-•]\s+/gm, '')
+      .replace(/^[\s]*\d+[.)]\s+/gm, '')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim();
+  }
+
   async createChatSession(userType: 'customer' | 'worker', language: string = 'en', userId?: string): Promise<string> {
     const sessionId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -111,9 +122,18 @@ Respond in ${this.getLanguageName(language)}.`;
   }
 
   async sendMessage(sessionId: string, message: string): Promise<ChatMessage> {
-    const session = this.activeSessions.get(sessionId);
+    let session = this.activeSessions.get(sessionId);
     if (!session) {
-      throw new Error('Chat session not found');
+      session = {
+        id: sessionId,
+        userType: 'customer',
+        language: 'en',
+        messages: [],
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      this.activeSessions.set(sessionId, session);
     }
 
     // Add user message
@@ -129,38 +149,21 @@ Respond in ${this.getLanguageName(language)}.`;
     session.messages.push(userMessage);
 
     try {
-      // Generate AI response
-      if (!this.model) {
-        throw new Error('AI service is not available');
+      const backendResponse = await api.post('/chat/chat', {
+        message,
+        language: session.language,
+        userType: session.userType,
+      });
+
+      const responseText = backendResponse.data?.data?.response;
+      if (typeof responseText !== 'string' || !responseText.trim()) {
+        throw new Error('Chat response was empty');
       }
-
-      const systemPrompt = this.getSystemPrompt(session.userType, session.language);
-      
-      // Simple conversation context
-      const conversationHistory = session.messages
-        .slice(-5) // Keep last 5 messages for context
-        .map(msg => `${msg.role}: ${msg.content}`)
-        .join('\n');
-
-      const simplePrompt = `${systemPrompt}
-
-Previous conversation:
-${conversationHistory}
-
-User asks: ${message}
-
-Please respond helpfully and keep it brief (2-3 sentences):`;
-
-      const result = await this.model.generateContent(simplePrompt);
-      const responseText = result.response.text();
-
-      // Simple response processing
-      const processedResponse = responseText.trim();
 
       const assistantMessage: ChatMessage = {
         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         role: 'assistant',
-        content: processedResponse,
+        content: this.sanitizeResponse(responseText),
         timestamp: new Date(),
         language: session.language,
         userType: session.userType
@@ -173,22 +176,62 @@ Please respond helpfully and keep it brief (2-3 sentences):`;
       return assistantMessage;
 
     } catch (error) {
-      logger.error('AI response error:', error);
-      
-      // Fallback message
-      const fallbackMessage: ChatMessage = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        role: 'assistant',
-        content: this.getFallbackMessage(session.language),
-        timestamp: new Date(),
-        language: session.language,
-        userType: session.userType
-      };
+      logger.error('Backend chat error:', error);
 
-      session.messages.push(fallbackMessage);
-      this.activeSessions.set(sessionId, session);
+      try {
+        if (!this.model) {
+          throw new Error('AI service is not available');
+        }
 
-      return fallbackMessage;
+        const systemPrompt = this.getSystemPrompt(session.userType, session.language);
+        const conversationHistory = session.messages
+          .slice(-5)
+          .map(msg => `${msg.role}: ${msg.content}`)
+          .join('\n');
+
+        const simplePrompt = `${systemPrompt}
+
+Previous conversation:
+${conversationHistory}
+
+User asks: ${message}
+
+Please respond helpfully and keep it brief (2-3 sentences):`;
+
+        const result = await this.model.generateContent(simplePrompt);
+        const responseText = result.response.text();
+
+        const assistantMessage: ChatMessage = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          role: 'assistant',
+          content: this.sanitizeResponse(responseText),
+          timestamp: new Date(),
+          language: session.language,
+          userType: session.userType
+        };
+
+        session.messages.push(assistantMessage);
+        session.updatedAt = new Date();
+        this.activeSessions.set(sessionId, session);
+
+        return assistantMessage;
+      } catch (fallbackError) {
+        logger.error('AI response error:', fallbackError);
+
+        const fallbackMessage: ChatMessage = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          role: 'assistant',
+          content: this.getFallbackMessage(session.language),
+          timestamp: new Date(),
+          language: session.language,
+          userType: session.userType
+        };
+
+        session.messages.push(fallbackMessage);
+        this.activeSessions.set(sessionId, session);
+
+        return fallbackMessage;
+      }
     }
   }
 
