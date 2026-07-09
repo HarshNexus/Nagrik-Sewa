@@ -8,9 +8,22 @@ const router = express.Router();
 // Get platform statistics
 router.get('/platform', async (req, res) => {
   try {
+    // Some worker accounts live in `users` from older flows, while newer
+    // registrations are stored in `workerprofiles`. Count both and de-duplicate
+    // by email so the dashboard reflects the real number of worker records.
+    const [workerUserEmails, workerProfileEmails] = await Promise.all([
+      User.distinct('email', { role: 'worker' }),
+      WorkerProfile.distinct('email', {})
+    ]);
+
+    const totalWorkers = new Set(
+      [...workerUserEmails, ...workerProfileEmails]
+        .filter((email): email is string => typeof email === 'string' && email.trim().length > 0)
+        .map(email => email.toLowerCase().trim())
+    ).size;
+
     const [
       totalCustomers,
-      totalWorkers,
       verifiedWorkers,
       completedBookings,
       totalBookings,
@@ -18,7 +31,6 @@ router.get('/platform', async (req, res) => {
       avgRating
     ] = await Promise.all([
       User.countDocuments({ role: 'customer' }),
-      User.countDocuments({ role: 'worker' }),
       WorkerProfile.countDocuments({ 
         'verification.isKYCVerified': true,
         isActive: true 

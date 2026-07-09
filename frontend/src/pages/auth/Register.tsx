@@ -168,6 +168,7 @@ const Register: React.FC = () => {
         <OTPVerification
           email={registrationData.email}
           phone={registrationData.phone}
+          accountType={formData.role}
           onVerificationComplete={handleVerificationComplete}
         />
       </div>

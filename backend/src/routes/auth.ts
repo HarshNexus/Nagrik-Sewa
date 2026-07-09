@@ -293,6 +293,37 @@ async function sendWelcomeEmailInBackground(user: any): Promise<void> {
   });
 }
 
+type VerificationAccount = {
+  user: any;
+  foundInCollection: 'users' | 'workerprofiles';
+};
+
+async function resolveVerificationAccount(
+  email: string,
+  accountType: 'customer' | 'worker'
+): Promise<VerificationAccount | null> {
+  if (accountType === 'worker') {
+    const workerProfile = await WorkerProfile.collection.findOne({ email });
+    if (workerProfile) {
+      return { user: workerProfile, foundInCollection: 'workerprofiles' };
+    }
+
+    const workerUser = await User.collection.findOne({ email, role: 'worker' });
+    if (workerUser) {
+      return { user: workerUser, foundInCollection: 'users' };
+    }
+
+    return null;
+  }
+
+  const customerUser = await User.collection.findOne({ email, role: 'customer' });
+  if (customerUser) {
+    return { user: customerUser, foundInCollection: 'users' };
+  }
+
+  return null;
+}
+
 // ============================================================================
 // REGISTER ENDPOINT - STRICT FLOW for WORKER and CUSTOMER
 // ============================================================================
@@ -603,10 +634,11 @@ router.post('/verify-email-otp', async (req, res) => {
       return;
     }
 
-    const { email: rawEmail, otp } = req.body;
+    const { email: rawEmail, otp, accountType } = req.body;
     const email = rawEmail?.trim().toLowerCase();
+    const normalizedAccountType = accountType === 'worker' ? 'worker' : 'customer';
 
-    console.log('[VERIFY-EMAIL-OTP] Request received:', { email, hasOTP: !!otp });
+    console.log('[VERIFY-EMAIL-OTP] Request received:', { email, hasOTP: !!otp, accountType: normalizedAccountType });
 
     // Validate input
     if (!email || !otp) {
@@ -617,15 +649,13 @@ router.post('/verify-email-otp', async (req, res) => {
       });
     }
 
-    // Find account by email across both collections
+    // Resolve the account to verify. Prefer the requested role, but fall back
+    // to any pending account with a valid OTP so an already-verified customer
+    // record never blocks a worker signup with the same email.
     console.log('[VERIFY-EMAIL-OTP] Looking up account...');
-    let user = await User.findOne({ email });
-    let foundInCollection: 'users' | 'workerprofiles' | null = user ? 'users' : null;
-
-    if (!user) {
-      user = await WorkerProfile.findOne({ email });
-      if (user) foundInCollection = 'workerprofiles';
-    }
+    const resolvedAccount = await resolveVerificationAccount(email, normalizedAccountType);
+    const user = resolvedAccount?.user;
+    const foundInCollection = resolvedAccount?.foundInCollection || null;
 
     if (!user || !foundInCollection) {
       console.log('[VERIFY-EMAIL-OTP] User not found:', email);
@@ -646,10 +676,13 @@ router.post('/verify-email-otp', async (req, res) => {
 
     // Verify OTP matches
     console.log('[VERIFY-EMAIL-OTP] Verifying OTP...');
-    if (!user.emailVerificationOTP || user.emailVerificationOTP !== otp) {
+    const storedOtp = user.emailVerificationOTP != null ? String(user.emailVerificationOTP).trim() : '';
+    const providedOtp = otp != null ? String(otp).trim() : '';
+
+    if (!storedOtp || storedOtp !== providedOtp) {
       console.log('[VERIFY-EMAIL-OTP] Invalid OTP:', { 
-        provided: otp, 
-        expected: user.emailVerificationOTP ? '[SET]' : '[NOT SET]' 
+        provided: providedOtp, 
+        expected: storedOtp ? '[SET]' : '[NOT SET]' 
       });
       return res.status(400).json({
         success: false,
@@ -671,38 +704,59 @@ router.post('/verify-email-otp', async (req, res) => {
 
     // Mark email as verified and clear OTP data
     console.log('[VERIFY-EMAIL-OTP] OTP valid, marking email as verified...');
-    user.isEmailVerified = true;
-    user.emailVerificationOTP = undefined;
-    user.emailOTPExpiry = undefined;
+    const updatePayload: Record<string, any> = {
+      $set: {
+        isEmailVerified: true
+      },
+      $unset: {
+        emailVerificationOTP: 1,
+        emailOTPExpiry: 1
+      }
+    };
+
     if (foundInCollection === 'users') {
-      user.accountStatus = 'active';
+      updatePayload.$set.accountStatus = 'active';
     }
-    await user.save();
+
+    if (foundInCollection === 'workerprofiles') {
+      await WorkerProfile.collection.updateOne({ _id: user._id }, updatePayload);
+    } else {
+      await User.collection.updateOne({ _id: user._id }, updatePayload);
+    }
+
+    const verifiedUser = {
+      ...user,
+      isEmailVerified: true,
+      accountStatus: foundInCollection === 'users' ? 'active' : user.accountStatus,
+      emailVerificationOTP: undefined,
+      emailOTPExpiry: undefined
+    };
+
     console.log('[VERIFY-EMAIL-OTP] Email verified successfully:', { userId: user._id });
 
     // Generate tokens after successful verification
-    const accessToken = generateToken(user);
-    const refreshToken = generateRefreshToken(user);
+    const accessToken = generateToken(verifiedUser);
+    const refreshToken = generateRefreshToken(verifiedUser);
 
     // Send welcome email in background (non-blocking)
-    console.log('[VERIFY-EMAIL-OTP] Queuing welcome email to:', user.email);
-    sendWelcomeEmailInBackground(user);
+    console.log('[VERIFY-EMAIL-OTP] Queuing welcome email to:', verifiedUser.email);
+    sendWelcomeEmailInBackground(verifiedUser);
 
     res.json({
       success: true,
       message: 'Email verified successfully! Welcome to Nagrik Sewa.',
       data: {
         user: {
-          id: user._id,
-          email: user.email,
-          phone: user.phone,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role || (foundInCollection === 'workerprofiles' ? 'worker' : 'customer'),
+          id: verifiedUser._id,
+          email: verifiedUser.email,
+          phone: verifiedUser.phone,
+          firstName: verifiedUser.firstName,
+          lastName: verifiedUser.lastName,
+          role: verifiedUser.role || (foundInCollection === 'workerprofiles' ? 'worker' : 'customer'),
           collection: foundInCollection,
-          isEmailVerified: user.isEmailVerified,
-          isPhoneVerified: user.isPhoneVerified,
-          avatar: user.avatar
+          isEmailVerified: verifiedUser.isEmailVerified,
+          isPhoneVerified: verifiedUser.isPhoneVerified,
+          avatar: verifiedUser.avatar
         },
         token: accessToken,
         tokens: {
@@ -732,10 +786,11 @@ router.post('/resend-email-otp', async (req, res) => {
       return;
     }
 
-    const { email: rawEmail } = req.body;
+    const { email: rawEmail, accountType } = req.body;
     const email = rawEmail?.trim().toLowerCase();
+    const normalizedAccountType = accountType === 'worker' ? 'worker' : 'customer';
 
-    console.log('[RESEND-EMAIL-OTP] Request received:', { email });
+    console.log('[RESEND-EMAIL-OTP] Request received:', { email, accountType: normalizedAccountType });
 
     // Validate input
     if (!email) {
@@ -746,15 +801,11 @@ router.post('/resend-email-otp', async (req, res) => {
       });
     }
 
-    // Find account by email across both collections
+    // Resolve the account to resend for using the same logic as verification.
     console.log('[RESEND-EMAIL-OTP] Looking up account...');
-    let user = await User.findOne({ email });
-    let foundInCollection: 'users' | 'workerprofiles' | null = user ? 'users' : null;
-
-    if (!user) {
-      user = await WorkerProfile.findOne({ email });
-      if (user) foundInCollection = 'workerprofiles';
-    }
+    const resolvedAccount = await resolveVerificationAccount(email, normalizedAccountType);
+    const user = resolvedAccount?.user;
+    const foundInCollection = resolvedAccount?.foundInCollection || null;
 
     if (!user || !foundInCollection) {
       console.log('[RESEND-EMAIL-OTP] User not found:', email);

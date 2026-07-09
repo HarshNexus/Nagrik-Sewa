@@ -349,6 +349,7 @@ export default function JoinAsWorker() {
         <OTPVerification
           email={registrationEmail}
           phone={registrationPhone}
+          accountType="worker"
           onVerificationComplete={handleVerificationComplete}
         />
       </div>

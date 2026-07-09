@@ -33,7 +33,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
           <MapPin className="h-4 w-4 text-gray-500" />
         )}
         <Select value={selectedState} onValueChange={handleStateChange}>
-          <SelectTrigger className={variant === 'compact' ? 'w-[140px]' : 'w-[200px]'}>
+          <SelectTrigger className={variant === 'compact' ? 'w-[120px] lg:w-[128px]' : 'w-[200px]'}>
             <SelectValue placeholder="Select Location">
               <span className="flex items-center gap-2">
                 {variant === 'compact' && <MapPin className="h-3 w-3" />}
@@ -82,7 +82,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
         <div className="flex items-center gap-2">
           <div className={variant === 'default' ? 'w-6' : 'w-0'} /> {/* Spacer for alignment */}
           <Select value={selectedDistrict} onValueChange={setSelectedDistrict}>
-            <SelectTrigger className={variant === 'compact' ? 'w-[140px]' : 'w-[200px]'}>
+            <SelectTrigger className={variant === 'compact' ? 'w-[120px] lg:w-[128px]' : 'w-[200px]'}>
               <SelectValue placeholder="Select District">
                 {selectedDistrict || 'Select District'}
               </SelectValue>

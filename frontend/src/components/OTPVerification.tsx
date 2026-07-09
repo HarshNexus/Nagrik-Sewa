@@ -16,11 +16,13 @@ import { Loader2, Mail, RefreshCw } from 'lucide-react';
 interface OTPVerificationProps {
   email: string;
   phone?: string;
+  accountType?: 'customer' | 'worker';
   onVerificationComplete: () => void;
 }
 
 export const OTPVerification: React.FC<OTPVerificationProps> = ({
   email,
+  accountType = 'customer',
   onVerificationComplete
 }) => {
   const [emailOTP, setEmailOTP] = useState('');
@@ -38,7 +40,7 @@ export const OTPVerification: React.FC<OTPVerificationProps> = ({
     setError('');
     
     try {
-      const response = await api.post('/auth/verify-email-otp', { email, otp: emailOTP });
+      const response = await api.post('/auth/verify-email-otp', { email, otp: emailOTP, accountType });
       if (response.data.success) {
         // Store token if returned
         if (response.data.data?.token) {
@@ -58,7 +60,7 @@ export const OTPVerification: React.FC<OTPVerificationProps> = ({
     setError('');
     
     try {
-      await api.post('/auth/resend-email-otp', { email });
+      await api.post('/auth/resend-email-otp', { email, accountType });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to resend OTP');
     } finally {
