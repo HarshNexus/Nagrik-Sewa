@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { User, IUser } from '../models/User';
+import { WorkerProfile } from '../models/WorkerProfile';
 
 dotenv.config();
 
@@ -127,9 +128,19 @@ export const authenticate = async (
       return;
     }
 
-    // Get user from database (normal users)
-    const user = await User.findById(decoded.userId).select('-password');
-    
+    const isWorkerAccount = decoded.role === 'worker';
+    let user: any = null;
+
+    if (isWorkerAccount) {
+      user = await WorkerProfile.findById(decoded.userId).select('-password');
+      if (!user) {
+        // Backward compatibility for older worker accounts that still live in users
+        user = await User.findById(decoded.userId).select('-password');
+      }
+    } else {
+      user = await User.findById(decoded.userId).select('-password');
+    }
+
     if (!user) {
       res.status(401).json({
         success: false,
@@ -213,9 +224,11 @@ export const optionalAuth = async (
     const decoded = verifyToken(token);
 
     if (decoded) {
-      const user = await User.findById(decoded.userId).select('-password');
-      if (user && user.isActive && !user.isBlocked) {
-        req.user = user;
+      const user: any = decoded.role === 'worker'
+        ? (await WorkerProfile.findById(decoded.userId).select('-password') || await User.findById(decoded.userId).select('-password'))
+        : await User.findById(decoded.userId).select('-password');
+      if (user && user.isActive && !(user as any).isBlocked) {
+        req.user = user as any;
       }
     }
 

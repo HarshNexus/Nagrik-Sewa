@@ -146,13 +146,14 @@ export const schemas = {
       state: Joi.string().trim().required(),
       pincode: Joi.string().pattern(/^[1-9][0-9]{5}$/).required(),
       country: Joi.string().default('India')
-    }).required()
+    }).optional()
   }),
 
   // User login
   login: Joi.object({
     email: Joi.string().email().required(),
-    password: Joi.string().required()
+    password: Joi.string().required(),
+    role: Joi.string().valid('customer', 'worker').optional()
   }),
 
   // Phone login

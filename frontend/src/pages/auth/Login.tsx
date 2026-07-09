@@ -57,6 +57,20 @@ const Login: React.FC = () => {
 
     try {
       const loggedInUser = await login(email, password);
+
+      if ('requiresRoleSelection' in loggedInUser && loggedInUser.requiresRoleSelection) {
+        navigate('/login/choose-role', {
+          replace: true,
+          state: {
+            email,
+            password,
+            availableRoles: loggedInUser.availableRoles,
+            message: loggedInUser.message || 'Choose how you want to log in'
+          }
+        });
+        return;
+      }
+
       console.log('[Login] Login successful, redirecting...', loggedInUser);
       
       // Redirect based on user role
@@ -100,7 +114,9 @@ const Login: React.FC = () => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                }}
                 placeholder="Enter your email"
                 required
               />

@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 export interface IWorkerProfile extends Document {
   // Authentication fields (for workers stored directly in workerprofiles collection)
@@ -709,6 +710,7 @@ const workerProfileSchema = new Schema<IWorkerProfile>({
 // Indexes
 workerProfileSchema.index({ email: 1 }); // For login authentication
 workerProfileSchema.index({ phone: 1 }); // For duplicate checking
+workerProfileSchema.index({ userId: 1 }, { unique: true, sparse: true });
 workerProfileSchema.index({ 'verification.status': 1 });
 workerProfileSchema.index({ 'serviceCategories': 1 });
 workerProfileSchema.index({ 'rating.average': -1 });
@@ -737,9 +739,27 @@ workerProfileSchema.index({
   'isApproved': 1
 });
 
+const BCRYPT_HASH_REGEX = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
+
+workerProfileSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+
+  const passwordValue = this.password as unknown as string;
+  if (typeof passwordValue === 'string' && BCRYPT_HASH_REGEX.test(passwordValue)) {
+    return next();
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error as Error);
+  }
+});
+
 // Methods for authentication
 workerProfileSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  const bcrypt = require('bcryptjs');
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
@@ -783,6 +803,7 @@ const cleanupOldIndexes = async () => {
     const indexes = await collection.getIndexes();
     
     const problematicIndexes = [
+      'userId_1',
       'serviceAreas.city_1_serviceAreas.state_1',
       'skills.name_1_skills.category_1',
       'serviceCategories_1_rating.average_-1_availability.isCurrentlyAvailable_1',
