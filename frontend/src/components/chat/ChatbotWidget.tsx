@@ -8,7 +8,6 @@ import {
   Settings,
   Minimize2,
   RefreshCw,
-  Languages,
   UserCheck,
   Users,
   HelpCircle,
@@ -26,7 +25,6 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card } from '../ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Badge } from '../ui/badge';
 import { useChatbot } from '../../contexts/ChatbotContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { ChatMessage } from '../../services/chatbot';
@@ -114,23 +112,6 @@ export const ChatbotWidget: React.FC = () => {
     }).format(date);
   };
 
-  const getLanguageName = (code: string) => {
-    const languages: Record<string, string> = {
-      'en': 'English',
-      'hi': 'हिंदी',
-      'ta': 'தமிழ்',
-      'te': 'తెలుగు',
-      'bn': 'বাংলা',
-      'mr': 'मराठी',
-      'gu': 'ગુજરાતી',
-      'kn': 'ಕನ್ನಡ',
-      'ml': 'മലയാളം',
-      'pa': 'ਪੰਜਾਬੀ',
-      'ur': 'اردو'
-    };
-    return languages[code] || 'English';
-  };
-
   const sanitizeMessageContent = (content: string) => {
     return content
       .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -194,34 +175,24 @@ export const ChatbotWidget: React.FC = () => {
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
-      <Card className={`w-96 bg-white shadow-2xl border-0 transition-all duration-300 ${
+      <Card className={`w-96 max-w-[calc(100vw-3rem)] bg-white shadow-2xl border-0 transition-all duration-300 overflow-hidden flex flex-col ${
         isMinimized ? 'h-14' : 'h-[600px]'
       }`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-brand-600 to-brand-700 text-white rounded-t-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+        <div className="flex flex-shrink-0 items-center gap-3 p-4 border-b border-gray-200 bg-gradient-to-r from-brand-600 to-brand-700 text-white rounded-t-lg">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="w-8 h-8 flex-shrink-0 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
               <Bot className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="font-semibold text-sm">Nagrik Sewa AI</h3>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs bg-white bg-opacity-20 text-white border-0">
-                  {userType === 'worker' ? <UserCheck className="w-3 h-3 mr-1" /> : <Users className="w-3 h-3 mr-1" />}
-                  {userType === 'worker' ? 'Worker' : 'Customer'}
-                </Badge>
-                <Badge variant="secondary" className="text-xs bg-white bg-opacity-20 text-white border-0">
-                  <Languages className="w-3 h-3 mr-1" />
-                  {getLanguageName(language)}
-                </Badge>
-              </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-sm truncate">Nagrik Sewa AI</h3>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex flex-shrink-0 items-center gap-1">
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => setShowFeedback(!showFeedback)}
               className="text-white hover:bg-white hover:bg-opacity-20 w-8 h-8 p-0"
               title="Feedback"
@@ -230,7 +201,7 @@ export const ChatbotWidget: React.FC = () => {
             </Button>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => setShowSettings(!showSettings)}
               className="text-white hover:bg-white hover:bg-opacity-20 w-8 h-8 p-0"
             >
@@ -238,7 +209,7 @@ export const ChatbotWidget: React.FC = () => {
             </Button>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => setIsMinimized(!isMinimized)}
               className="text-white hover:bg-white hover:bg-opacity-20 w-8 h-8 p-0"
             >
@@ -246,9 +217,10 @@ export const ChatbotWidget: React.FC = () => {
             </Button>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={closeChat}
               className="text-white hover:bg-white hover:bg-opacity-20 w-8 h-8 p-0"
+              aria-label="Close chatbot"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -259,7 +231,7 @@ export const ChatbotWidget: React.FC = () => {
           <>
             {/* Feedback Panel */}
             {showFeedback && sessionId && (
-              <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
                 <ChatFeedback
                   sessionId={sessionId}
                   onFeedbackSubmitted={() => setShowFeedback(false)}
@@ -269,7 +241,7 @@ export const ChatbotWidget: React.FC = () => {
 
             {/* Settings Panel */}
             {showSettings && (
-              <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-medium text-gray-700 mb-1 block">I am a:</label>
@@ -320,7 +292,7 @@ export const ChatbotWidget: React.FC = () => {
             )}
 
             {/* Messages Area */}
-            <div className="flex-1 p-4 overflow-y-auto bg-gray-50" style={{ height: showSettings || showFeedback ? '380px' : '480px' }}>
+            <div className="min-h-0 flex-1 p-4 overflow-y-auto bg-gray-50">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-500">
                   <div className="text-center">
@@ -407,7 +379,7 @@ export const ChatbotWidget: React.FC = () => {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 border-t border-gray-200 bg-white rounded-b-lg">
+            <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white rounded-b-lg">
               <div className="flex gap-2">
                 <Input
                   ref={inputRef}
