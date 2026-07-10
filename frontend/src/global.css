@@ -121,6 +121,11 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--current-font-family);
+    overflow-x: clip;
+  }
+
+  html {
+    overflow-x: clip;
   }
 
   /* Apply font to all major elements */

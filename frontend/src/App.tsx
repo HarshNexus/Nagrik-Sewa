@@ -36,6 +36,7 @@ const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Support = lazy(() => import("./pages/Support"));
 const Login = lazy(() => import("./pages/auth/Login"));
+const LoginRoleChoice = lazy(() => import("./pages/auth/LoginRoleChoice"));
 const Register = lazy(() => import("./pages/auth/Register"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
@@ -214,6 +215,7 @@ const App = () => (
                       
                       {/* Auth routes */}
                       <Route path="/login" element={<Login />} />
+                      <Route path="/login/choose-role" element={<LoginRoleChoice />} />
                       <Route path="/register" element={<Register />} />
                       <Route path="/forgot-password" element={<ForgotPassword />} />
                       <Route path="/reset-password" element={<ResetPassword />} />

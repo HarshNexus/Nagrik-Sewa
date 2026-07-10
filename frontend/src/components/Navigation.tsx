@@ -94,7 +94,6 @@ export function Navigation() {
         { href: "/", label: t("navigation.home"), icon: HomeIcon },
         { href: "/dashboard", label: "My Dashboard", icon: Briefcase },
         { href: "/find-customers", label: "Find Customers", icon: Users },
-        { href: "/bookings", label: "My Bookings", icon: Calendar },
         { href: "/resume-builder", label: "Resume Builder", icon: FileText },
       ];
     }
@@ -110,9 +109,9 @@ export function Navigation() {
   const navLinks = getNavLinks();
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 overflow-x-clip">
       <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 lg:h-16 lg:flex-nowrap">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
             <img src="/logo-hindi.svg" alt="Nagrik Sewa" className="h-10 w-10 sm:h-12 sm:w-12" />
@@ -123,7 +122,7 @@ export function Navigation() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-4 xl:space-x-6 flex-1 justify-center">
+          <div className="hidden lg:flex min-w-0 flex-1 items-center justify-center gap-3 xl:gap-4 overflow-hidden">
             {navLinks.map((link) => (
               <div key={link.href} className="relative group">
                 {link.dropdown ? (
@@ -168,13 +167,13 @@ export function Navigation() {
           </div>
 
           {/* Language & Location Selectors - separate from nav links */}
-          <div className="hidden lg:flex items-center space-x-2 xl:space-x-3 border-l pl-3 xl:pl-4 flex-shrink-0">
+          <div className="hidden lg:flex flex-wrap items-center justify-end gap-2 xl:gap-3 border-l pl-3 xl:pl-4 flex-shrink-0 max-w-full">
             <LanguageSelector variant="compact" />
-            <LocationSelector variant="compact" showDistrict />
+            <LocationSelector variant="compact" showDistrict={false} />
           </div>
 
           {/* Auth Section */}
-          <div className="hidden lg:flex items-center space-x-2 xl:space-x-3 flex-shrink-0">
+          <div className="hidden lg:flex flex-wrap items-center justify-end gap-2 xl:gap-3 flex-shrink-0 max-w-full">
             {isAuthenticated ? (
               <>
                 {user?.role !== 'admin' && (

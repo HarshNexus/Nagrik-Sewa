@@ -293,6 +293,37 @@ async function sendWelcomeEmailInBackground(user: any): Promise<void> {
   });
 }
 
+type VerificationAccount = {
+  user: any;
+  foundInCollection: 'users' | 'workerprofiles';
+};
+
+async function resolveVerificationAccount(
+  email: string,
+  accountType: 'customer' | 'worker'
+): Promise<VerificationAccount | null> {
+  if (accountType === 'worker') {
+    const workerProfile = await WorkerProfile.collection.findOne({ email });
+    if (workerProfile) {
+      return { user: workerProfile, foundInCollection: 'workerprofiles' };
+    }
+
+    const workerUser = await User.collection.findOne({ email, role: 'worker' });
+    if (workerUser) {
+      return { user: workerUser, foundInCollection: 'users' };
+    }
+
+    return null;
+  }
+
+  const customerUser = await User.collection.findOne({ email, role: 'customer' });
+  if (customerUser) {
+    return { user: customerUser, foundInCollection: 'users' };
+  }
+
+  return null;
+}
+
 // ============================================================================
 // REGISTER ENDPOINT - STRICT FLOW for WORKER and CUSTOMER
 // ============================================================================
@@ -603,10 +634,11 @@ router.post('/verify-email-otp', async (req, res) => {
       return;
     }
 
-    const { email: rawEmail, otp } = req.body;
+    const { email: rawEmail, otp, accountType } = req.body;
     const email = rawEmail?.trim().toLowerCase();
+    const normalizedAccountType = accountType === 'worker' ? 'worker' : 'customer';
 
-    console.log('[VERIFY-EMAIL-OTP] Request received:', { email, hasOTP: !!otp });
+    console.log('[VERIFY-EMAIL-OTP] Request received:', { email, hasOTP: !!otp, accountType: normalizedAccountType });
 
     // Validate input
     if (!email || !otp) {
@@ -617,11 +649,15 @@ router.post('/verify-email-otp', async (req, res) => {
       });
     }
 
-    // Find user by email
-    console.log('[VERIFY-EMAIL-OTP] Looking up user...');
-    const user = await User.findOne({ email });
+    // Resolve the account to verify. Prefer the requested role, but fall back
+    // to any pending account with a valid OTP so an already-verified customer
+    // record never blocks a worker signup with the same email.
+    console.log('[VERIFY-EMAIL-OTP] Looking up account...');
+    const resolvedAccount = await resolveVerificationAccount(email, normalizedAccountType);
+    const user = resolvedAccount?.user;
+    const foundInCollection = resolvedAccount?.foundInCollection || null;
 
-    if (!user) {
+    if (!user || !foundInCollection) {
       console.log('[VERIFY-EMAIL-OTP] User not found:', email);
       return res.status(404).json({
         success: false,
@@ -640,10 +676,13 @@ router.post('/verify-email-otp', async (req, res) => {
 
     // Verify OTP matches
     console.log('[VERIFY-EMAIL-OTP] Verifying OTP...');
-    if (!user.emailVerificationOTP || user.emailVerificationOTP !== otp) {
+    const storedOtp = user.emailVerificationOTP != null ? String(user.emailVerificationOTP).trim() : '';
+    const providedOtp = otp != null ? String(otp).trim() : '';
+
+    if (!storedOtp || storedOtp !== providedOtp) {
       console.log('[VERIFY-EMAIL-OTP] Invalid OTP:', { 
-        provided: otp, 
-        expected: user.emailVerificationOTP ? '[SET]' : '[NOT SET]' 
+        provided: providedOtp, 
+        expected: storedOtp ? '[SET]' : '[NOT SET]' 
       });
       return res.status(400).json({
         success: false,
@@ -665,35 +704,59 @@ router.post('/verify-email-otp', async (req, res) => {
 
     // Mark email as verified and clear OTP data
     console.log('[VERIFY-EMAIL-OTP] OTP valid, marking email as verified...');
-    user.isEmailVerified = true;
-    user.emailVerificationOTP = undefined;
-    user.emailOTPExpiry = undefined;
-    user.accountStatus = 'active';
-    await user.save();
+    const updatePayload: Record<string, any> = {
+      $set: {
+        isEmailVerified: true
+      },
+      $unset: {
+        emailVerificationOTP: 1,
+        emailOTPExpiry: 1
+      }
+    };
+
+    if (foundInCollection === 'users') {
+      updatePayload.$set.accountStatus = 'active';
+    }
+
+    if (foundInCollection === 'workerprofiles') {
+      await WorkerProfile.collection.updateOne({ _id: user._id }, updatePayload);
+    } else {
+      await User.collection.updateOne({ _id: user._id }, updatePayload);
+    }
+
+    const verifiedUser = {
+      ...user,
+      isEmailVerified: true,
+      accountStatus: foundInCollection === 'users' ? 'active' : user.accountStatus,
+      emailVerificationOTP: undefined,
+      emailOTPExpiry: undefined
+    };
+
     console.log('[VERIFY-EMAIL-OTP] Email verified successfully:', { userId: user._id });
 
     // Generate tokens after successful verification
-    const accessToken = generateToken(user);
-    const refreshToken = generateRefreshToken(user);
+    const accessToken = generateToken(verifiedUser);
+    const refreshToken = generateRefreshToken(verifiedUser);
 
     // Send welcome email in background (non-blocking)
-    console.log('[VERIFY-EMAIL-OTP] Queuing welcome email to:', user.email);
-    sendWelcomeEmailInBackground(user);
+    console.log('[VERIFY-EMAIL-OTP] Queuing welcome email to:', verifiedUser.email);
+    sendWelcomeEmailInBackground(verifiedUser);
 
     res.json({
       success: true,
       message: 'Email verified successfully! Welcome to Nagrik Sewa.',
       data: {
         user: {
-          id: user._id,
-          email: user.email,
-          phone: user.phone,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          isEmailVerified: user.isEmailVerified,
-          isPhoneVerified: user.isPhoneVerified,
-          avatar: user.avatar
+          id: verifiedUser._id,
+          email: verifiedUser.email,
+          phone: verifiedUser.phone,
+          firstName: verifiedUser.firstName,
+          lastName: verifiedUser.lastName,
+          role: verifiedUser.role || (foundInCollection === 'workerprofiles' ? 'worker' : 'customer'),
+          collection: foundInCollection,
+          isEmailVerified: verifiedUser.isEmailVerified,
+          isPhoneVerified: verifiedUser.isPhoneVerified,
+          avatar: verifiedUser.avatar
         },
         token: accessToken,
         tokens: {
@@ -723,10 +786,11 @@ router.post('/resend-email-otp', async (req, res) => {
       return;
     }
 
-    const { email: rawEmail } = req.body;
+    const { email: rawEmail, accountType } = req.body;
     const email = rawEmail?.trim().toLowerCase();
+    const normalizedAccountType = accountType === 'worker' ? 'worker' : 'customer';
 
-    console.log('[RESEND-EMAIL-OTP] Request received:', { email });
+    console.log('[RESEND-EMAIL-OTP] Request received:', { email, accountType: normalizedAccountType });
 
     // Validate input
     if (!email) {
@@ -737,11 +801,13 @@ router.post('/resend-email-otp', async (req, res) => {
       });
     }
 
-    // Find user by email
-    console.log('[RESEND-EMAIL-OTP] Looking up user...');
-    const user = await User.findOne({ email });
+    // Resolve the account to resend for using the same logic as verification.
+    console.log('[RESEND-EMAIL-OTP] Looking up account...');
+    const resolvedAccount = await resolveVerificationAccount(email, normalizedAccountType);
+    const user = resolvedAccount?.user;
+    const foundInCollection = resolvedAccount?.foundInCollection || null;
 
-    if (!user) {
+    if (!user || !foundInCollection) {
       console.log('[RESEND-EMAIL-OTP] User not found:', email);
       return res.status(404).json({
         success: false,
@@ -841,41 +907,32 @@ router.post('/send-otp', async (req, res) => {
 });
 
 // Login endpoint
-// MODIFIED: Added system admin credential check
 router.post('/login', async (req, res) => {
   try {
     if (!ensureDatabaseAvailable(res)) {
       return;
     }
 
-    console.log('LOGIN EMAIL:', req.body.email);
+    const { email, password, role } = req.body;
+    const normalizedEmail = email?.toLowerCase().trim();
+    const requestedRole = role === 'customer' || role === 'worker' ? role : undefined;
 
-    const { email, password } = req.body;
+    console.log('[LOGIN] Request received:', {
+      email: normalizedEmail,
+      hasPassword: !!password,
+      requestedRole
+    });
 
-    // Debug logging for request
-    console.log('[LOGIN] Request received:', { email: email?.toLowerCase(), hasPassword: !!password });
-
-    // Validation
-    if (!email || !password) {
-      console.log('[LOGIN] Missing credentials');
+    if (!normalizedEmail || !password) {
       return res.status(400).json({
         success: false,
         message: 'Email and password are required'
       });
     }
 
-    // Normalize email to lowercase for case-insensitive matching
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // ========================================================================
-    // SYSTEM ADMIN LOGIN CHECK
-    // This special admin bypasses normal user authentication
-    // ========================================================================
     if (isSystemAdminLogin(normalizedEmail, password)) {
       console.log('[LOGIN] System admin login successful');
-      
       const adminToken = generateSystemAdminToken();
-      
       return res.status(200).json({
         success: true,
         message: 'Admin login successful',
@@ -891,7 +948,7 @@ router.post('/login', async (req, res) => {
             avatar: null,
             isEmailVerified: true,
             isPhoneVerified: true,
-            isSystemAdmin: true // Flag to identify this as the system admin
+            isSystemAdmin: true
           },
           tokens: {
             accessToken: adminToken,
@@ -902,71 +959,77 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // ========================================================================
-    // NORMAL USER LOGIN - CHECK BOTH COLLECTIONS
-    // Customers in users | Workers in workerprofiles
-    // ========================================================================
+    const [userAccount, workerAccount] = await Promise.all([
+      User.findOne({ email: normalizedEmail }).select('+password'),
+      WorkerProfile.findOne({ email: normalizedEmail }).select('+password')
+    ]);
 
-    // Step 1: Check User collection (customers and admins)
-    let user = await User.findOne({ email: normalizedEmail }).select('+password');
-    let foundInCollection = 'users';
-    
-    // Step 2: If not found in users, check WorkerProfile collection
-    if (!user) {
-      const worker = await WorkerProfile.findOne({ email: normalizedEmail }).select('+password');
-      if (worker) {
-        user = worker as any; // Cast for compatibility
-        foundInCollection = 'workerprofiles';
+    const matches: Array<{ account: any; collection: 'users' | 'workerprofiles' }> = [];
+
+    if (userAccount) {
+      const isValid = typeof userAccount.comparePassword === 'function'
+        ? await userAccount.comparePassword(password)
+        : await bcrypt.compare(password, userAccount.password);
+      if (isValid) {
+        matches.push({ account: userAccount, collection: 'users' });
       }
     }
 
-    console.log('[LOGIN] Account lookup:', { found: !!user, email: normalizedEmail, collection: foundInCollection });
-    
-    if (!user) {
-      console.log('[LOGIN] User not found for email:', normalizedEmail);
+    if (workerAccount) {
+      const isValid = typeof workerAccount.comparePassword === 'function'
+        ? await workerAccount.comparePassword(password)
+        : await bcrypt.compare(password, workerAccount.password);
+      if (isValid) {
+        matches.push({ account: workerAccount, collection: 'workerprofiles' });
+      }
+    }
+
+    if (matches.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
       });
     }
 
-    console.log('USER FOUND:', { id: user._id, email: user.email, collection: foundInCollection, role: user.role || 'worker' });
+    const chosenMatch = requestedRole
+      ? matches.find(({ account }) => account.role === requestedRole)
+      : matches.length === 1
+        ? matches[0]
+        : null;
 
-    // ========================================================================
-    // ACCOUNT STATUS CHECKS (Only for users collection - has these fields)
-    // ========================================================================
+    if (!chosenMatch) {
+      return res.status(200).json({
+        success: false,
+        requiresRoleSelection: true,
+        availableRoles: matches.map(({ account }) => account.role === 'worker' ? 'worker' : 'customer'),
+        message: 'The same email and password match both customer and worker profiles. Please choose how to log in.'
+      });
+    }
+
+    const user = chosenMatch.account;
+    const foundInCollection = chosenMatch.collection;
+
     if (foundInCollection === 'users') {
-      // Check if account is blocked
       if (user.isBlocked) {
-        console.log('[LOGIN] Account blocked:', { userId: user._id, reason: user.blockReason });
         return res.status(403).json({
           success: false,
           message: 'Your account has been blocked. Please contact support.'
         });
       }
-
-      // Check if account is active
       if (user.isActive === false) {
-        console.log('[LOGIN] Account inactive:', { userId: user._id });
         return res.status(403).json({
           success: false,
           message: 'Your account has been deactivated. Please contact support.'
         });
       }
-
-      // Check account status
       if (user.accountStatus === 'suspended') {
-        console.log('[LOGIN] Account suspended:', { userId: user._id });
         return res.status(403).json({
           success: false,
           message: 'Your account has been suspended. Please contact support.'
         });
       }
-
-      // Check if account is locked due to failed attempts
       if (user.lockUntil && user.lockUntil > new Date()) {
         const remainingTime = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
-        console.log('[LOGIN] Account locked:', { userId: user._id, remainingMinutes: remainingTime });
         return res.status(423).json({
           success: false,
           message: `Account locked due to too many failed attempts. Try again in ${remainingTime} minutes.`
@@ -974,88 +1037,22 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    // ========================================================================
-    // PASSWORD VERIFICATION - PREVENT NULL CRASH
-    // ========================================================================
-    if (!user.password) {
-      console.log('[LOGIN] Password not set for user:', { userId: user._id, email: user.email });
-      return res.status(400).json({
-        success: false,
-        message: 'Password not set for this user. Please contact support.'
-      });
-    }
-
-    // Verify password using model method if available, otherwise use bcrypt directly
-    let isPasswordValid = false;
-    try {
-      if (typeof user.comparePassword === 'function') {
-        isPasswordValid = await user.comparePassword(password);
-      } else {
-        isPasswordValid = await bcrypt.compare(password, user.password);
-      }
-    } catch (passwordError: any) {
-      console.error('[LOGIN] Password comparison error:', passwordError.message);
-      return res.status(500).json({
-        success: false,
-        message: 'Password verification failed. Please try again.'
-      });
-    }
-    
-    console.log('[LOGIN] Password verification:', { valid: isPasswordValid, userId: user._id });
-    
-    if (!isPasswordValid) {
-      // Increment login attempts (only for user collection)
-      if (foundInCollection === 'users') {
-        user.loginAttempts = (user.loginAttempts || 0) + 1;
-        if (user.loginAttempts >= 5) {
-          user.lockUntil = new Date(Date.now() + 2 * 60 * 60 * 1000); // Lock for 2 hours
-          console.log('[LOGIN] Account locked after 5 failed attempts:', { userId: user._id });
-        }
-        await user.save().catch((err: any) => console.error('[LOGIN] Error saving failed attempt:', err));
-      }
-      
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Reset login attempts on successful password (only for user collection)
-    if (foundInCollection === 'users') {
+    if (foundInCollection === 'users' && typeof user.resetLoginAttempts === 'function') {
       if (user.loginAttempts > 0 || user.lockUntil) {
         user.loginAttempts = 0;
         user.lockUntil = undefined;
-        await user.save().catch((err: any) => console.error('[LOGIN] Error resetting attempts:', err));
       }
     }
 
-    // ========================================================================
-    // OTP VERIFICATION CHECK REMOVED
-    // Users are no longer required to verify email/phone before login
-    // ========================================================================
-
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save().catch((err: any) => console.error('[LOGIN] Error updating lastLogin:', err));
-
-    // Validate JWT_SECRET before token generation
-    if (!process.env.JWT_SECRET) {
-      console.error('[LOGIN] JWT_SECRET not configured');
-      return res.status(500).json({
-        success: false,
-        message: 'Server configuration error. Please contact support.'
-      });
+    if (foundInCollection === 'users') {
+      user.lastLogin = new Date();
     }
 
-    // Generate access token using centralized function
-    const accessToken = generateToken(user);
+    await user.save().catch((err: any) => console.error('[LOGIN] Error saving account:', err));
 
-    // Generate refresh token using centralized function
+    const accessToken = generateToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    console.log('[LOGIN] Success:', { userId: user._id, role: user.role, collection: foundInCollection });
-
-    // Response structure matches what frontend expects: data.user and data.tokens.accessToken
     res.status(200).json({
       success: true,
       message: 'Login successful',
@@ -1067,7 +1064,7 @@ router.post('/login', async (req, res) => {
           lastName: user.lastName,
           email: user.email,
           phone: user.phone,
-          role: user.role || 'worker',
+          role: user.role || (foundInCollection === 'workerprofiles' ? 'worker' : 'customer'),
           avatar: user.avatar || null,
           collection: foundInCollection,
           isEmailVerified: user.isEmailVerified || false,
@@ -1077,10 +1074,9 @@ router.post('/login', async (req, res) => {
           accessToken,
           refreshToken
         },
-        token: accessToken // Backward compatibility
+        token: accessToken
       }
     });
-
   } catch (error) {
     console.error('LOGIN ERROR:', error);
     res.status(500).json({
@@ -1096,6 +1092,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const userId = (req as any).user?.userId || (req as any).user?._id;
     const isSystemAdmin = (req as any).user?.isSystemAdmin;
+    const role = (req as any).user?.role;
     
     // ========================================================================
     // system admin /me ENDPOINT SUPPORT
@@ -1136,8 +1133,23 @@ router.get('/me', authMiddleware, async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId).select('-password -__v');
-    
+    let user = null as any;
+    let foundInCollection: 'users' | 'workerprofiles' | null = null;
+
+    if (role === 'worker') {
+      user = await WorkerProfile.findById(userId).select('-password -__v');
+      if (user) {
+        foundInCollection = 'workerprofiles';
+      }
+    }
+
+    if (!user) {
+      user = await User.findById(userId).select('-password -__v');
+      if (user) {
+        foundInCollection = 'users';
+      }
+    }
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -1154,13 +1166,14 @@ router.get('/me', authMiddleware, async (req, res) => {
           lastName: user.lastName,
           email: user.email,
           phone: user.phone,
-          role: user.role,
+          role: user.role || (foundInCollection === 'workerprofiles' ? 'worker' : 'customer'),
           avatar: user.avatar,
           isEmailVerified: user.isEmailVerified,
           isPhoneVerified: user.isPhoneVerified,
           isDigiLockerVerified: user.isDigiLockerVerified,
           languagePreference: user.languagePreference,
-          notificationPreferences: user.notificationPreferences
+          notificationPreferences: user.notificationPreferences,
+          collection: foundInCollection
         }
       }
     });
@@ -1186,9 +1199,15 @@ router.post('/check-user', async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email }).select('-password');
-    
+    let user = await User.findOne({ email }).select('-password');
+    let collection: 'users' | 'workerprofiles' | null = user ? 'users' : null;
+
     if (!user) {
+      user = await WorkerProfile.findOne({ email }).select('-password');
+      if (user) collection = 'workerprofiles';
+    }
+
+    if (!user || !collection) {
       return res.json({
         success: false,
         message: 'User not found',
@@ -1201,7 +1220,8 @@ router.post('/check-user', async (req, res) => {
       exists: true,
       data: {
         email: user.email,
-        role: user.role,
+        role: user.role || (collection === 'workerprofiles' ? 'worker' : 'customer'),
+        collection,
         isEmailVerified: user.isEmailVerified,
         isPhoneVerified: user.isPhoneVerified,
         accountStatus: user.accountStatus

@@ -38,7 +38,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         <Globe className="h-4 w-4 text-gray-500" />
       )}
       <Select value={language} onValueChange={setLanguage}>
-        <SelectTrigger className={variant === 'compact' ? 'w-[140px]' : 'w-[180px]'}>
+        <SelectTrigger className={variant === 'compact' ? 'w-[120px] lg:w-[128px]' : 'w-[180px]'}>
           <SelectValue>
             <span className="flex items-center gap-2">
               {variant === 'compact' && <Globe className="h-3 w-3" />}

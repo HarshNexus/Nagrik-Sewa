@@ -31,10 +31,10 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean; // Helper to check if user is admin
-  login: (email: string, password: string) => Promise<User>;
+  login: (email: string, password: string, role?: 'customer' | 'worker') => Promise<User | { requiresRoleSelection: true; availableRoles: Array<'customer' | 'worker'>; message?: string }>;
   register: (data: RegisterData) => Promise<any>;
-  verifyOTP: (phone: string, otp: string) => Promise<any>;
-  sendOTP: (phone: string) => Promise<any>;
+  verifyOTP: (email: string, otp: string, accountType?: 'customer' | 'worker') => Promise<any>;
+  sendOTP: (email: string, accountType?: 'customer' | 'worker') => Promise<any>;
   logout: () => void;
   updateUser: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, role?: 'customer' | 'worker') => {
     try {
       const loginUrl = `${API_URL}/auth/login`;
       
@@ -106,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role }),
         credentials: 'include', // ✓ CRITICAL: Enables cookie persistence
       });
 
@@ -119,6 +119,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           headers: Object.fromEntries(response.headers.entries()),
         });
         throw new Error(responseData?.message || 'Login failed');
+      }
+
+      if (responseData?.requiresRoleSelection) {
+        return {
+          requiresRoleSelection: true,
+          availableRoles: responseData.availableRoles || ['customer', 'worker'],
+          message: responseData.message,
+        };
       }
 
       logger.debug('[AUTH] Login response received:', {
@@ -208,9 +216,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // OTP VERIFICATION FUNCTIONS
   // ============================================================================
   
-  const sendOTP = async (email: string) => {
+  const sendOTP = async (email: string, accountType: 'customer' | 'worker' = 'customer') => {
     try {
-      const response = await api.post('/auth/resend-email-otp', { email });
+      const response = await api.post('/auth/resend-email-otp', { email, accountType });
       toast({
         title: "OTP Sent",
         description: "Verification code sent to your email",
@@ -227,9 +235,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const verifyOTP = async (email: string, otp: string) => {
+  const verifyOTP = async (email: string, otp: string, accountType: 'customer' | 'worker' = 'customer') => {
     try {
-      const response = await api.post('/auth/verify-email-otp', { email, otp });
+      const response = await api.post('/auth/verify-email-otp', { email, otp, accountType });
       const { user: verifiedUser, tokens } = response.data.data;
       
       if (tokens?.accessToken) {

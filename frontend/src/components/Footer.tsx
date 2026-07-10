@@ -57,7 +57,7 @@ export function Footer() {
               <BadgeCheck className="w-8 h-8 text-green-400" />
               <div>
                 <p className="font-semibold">
-                  {loading ? '...' : formatNumber(stats?.totalWorkers || 15000)}
+                  {loading ? '...' : (stats?.totalWorkers || 0).toLocaleString()}
                 </p>
                 <p className="text-sm text-gray-400">{t('footer.verifiedProfessionals') || 'Verified Professionals'}</p>
               </div>
