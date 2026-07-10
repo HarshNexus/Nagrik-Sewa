@@ -220,7 +220,7 @@ export function Footer() {
           <div className="flex flex-col md:flex-row justify-between items-center">
               <p className="text-gray-400 text-sm">
                 © 2025 Nagrik Sewa. {t("footer.copyright")}<br />
-                <span className="block mt-1">Made with ❤️ for India by Pushkar Kumar Saini</span>
+                <span className="block mt-1">Made with ❤️ for India</span>
               </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link to="/privacy" className="text-gray-400 hover:text-white text-sm">{t("navigation.privacy")}</Link>
