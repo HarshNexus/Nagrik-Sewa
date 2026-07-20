@@ -422,6 +422,21 @@ router.post('/register', async (req, res) => {
         phone: normalizedPhone,
         description: `${req.body.primarySkill || 'Service Provider'} professional`,
         experience: parseInt(req.body.experience) || 0,
+        // Worker accounts are stored directly in WorkerProfile, so copy the
+        // registration details into the profile fields used by customer search.
+        skills: [{
+          name: req.body.primarySkill || 'Service Provider',
+          category: req.body.primarySkill || 'General',
+          level: 'beginner',
+          yearsOfExperience: parseInt(req.body.experience) || 0
+        }],
+        serviceCategories: [req.body.primarySkill || 'General'],
+        serviceAreas: [{
+          city: req.body.district || 'India',
+          state: req.body.state || 'India',
+          radius: 10
+        }],
+        searchTags: [req.body.primarySkill || 'Service Provider', req.body.district || 'India'],
         role: "worker"
       };
 

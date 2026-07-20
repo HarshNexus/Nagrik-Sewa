@@ -40,10 +40,9 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
     let assignedWorker = null;
     if (workerId) {
       const workerProfile = await WorkerProfile.findOne({
-        userId: workerId,
+        $or: [{ _id: workerId }, { userId: workerId }],
         isActive: true,
-        isApproved: true,
-        'verification.status': 'verified'
+        'verification.status': { $ne: 'rejected' }
       }).populate('userId');
 
       if (!workerProfile) {
@@ -83,7 +82,7 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
     // Create booking
     const booking = new Booking({
       customerId,
-      workerId: assignedWorker?.userId._id,
+      workerId: assignedWorker ? ((assignedWorker.userId as any)?._id || assignedWorker._id) : undefined,
       serviceId,
       bookingType,
       serviceDetails: {
@@ -145,7 +144,7 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
             <ul>
               <li><strong>Booking ID:</strong> ${booking.bookingId}</li>
               <li><strong>Service:</strong> ${service.name}</li>
-              <li><strong>Worker:</strong> ${assignedWorker ? `${assignedWorker.userId.firstName} ${assignedWorker.userId.lastName}` : 'To be assigned'}</li>
+              <li><strong>Worker:</strong> ${assignedWorker ? `${assignedWorker.userId?.firstName || assignedWorker.firstName} ${assignedWorker.userId?.lastName || assignedWorker.lastName || ''}` : 'To be assigned'}</li>
               <li><strong>Date & Time:</strong> ${schedule.requestedDate.toDateString()} at ${schedule.requestedTime}</li>
               <li><strong>Address:</strong> ${location.address.street}, ${location.address.city}</li>
               <li><strong>Total Amount:</strong> ₹${totalAmount}</li>

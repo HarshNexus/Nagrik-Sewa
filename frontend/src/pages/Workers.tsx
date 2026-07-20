@@ -84,27 +84,27 @@ const Workers: React.FC = () => {
         // Map API response to component interface
         const mappedWorkers = (response.data.data.workers || []).map((apiWorker: any) => ({
           _id: apiWorker._id,
-          firstName: apiWorker.userId?.firstName || 'Unknown',
-          lastName: apiWorker.userId?.lastName || 'Worker',
-          avatar: apiWorker.userId?.avatar,
+          firstName: apiWorker.userId?.firstName || apiWorker.firstName || 'Unknown',
+          lastName: apiWorker.userId?.lastName || apiWorker.lastName || 'Worker',
+          avatar: apiWorker.userId?.avatar || apiWorker.avatar,
           skills: Array.isArray(apiWorker.skills) 
             ? apiWorker.skills.map((s: any) => typeof s === 'string' ? s : s.name).filter(Boolean)
             : [],
           rating: apiWorker.rating?.average || 0,
           totalReviews: apiWorker.rating?.totalReviews || 0,
           location: {
-            address: apiWorker.userId?.address?.address || 'India',
-            city: apiWorker.userId?.address?.city || 'Delhi'
+            address: apiWorker.userId?.address?.address || apiWorker.serviceAreas?.[0]?.city || 'India',
+            city: apiWorker.userId?.address?.city || apiWorker.serviceAreas?.[0]?.city || 'India'
           },
           pricing: {
-            hourlyRate: apiWorker.pricing?.hourlyRate || 0
+            hourlyRate: apiWorker.pricing?.hourlyRate || apiWorker.skills?.[0]?.hourlyRate || 0
           },
           availability: {
             isAvailable: apiWorker.availability?.isCurrentlyAvailable ?? true
           },
           isVerified: (apiWorker.isActive && apiWorker.isApproved) || (apiWorker.verification?.status === 'verified'),
-          completedJobs: apiWorker.statistics?.completedJobs || 0,
-          joinedDate: apiWorker.userId?.createdAt || new Date().toISOString()
+          completedJobs: apiWorker.statistics?.completedJobs || apiWorker.stats?.completedBookings || 0,
+          joinedDate: apiWorker.userId?.createdAt || apiWorker.createdAt || new Date().toISOString()
         }));
         setWorkers(mappedWorkers);
       }

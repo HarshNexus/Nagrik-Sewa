@@ -49,6 +49,7 @@ const SkillTraining = lazy(() => import("./pages/workers/SkillTraining"));
 const GetVerified = lazy(() => import("./pages/workers/GetVerified"));
 const ResumeBuilder = lazy(() => import("./pages/workers/ResumeBuilder"));
 const WorkerSupport = lazy(() => import("./pages/workers/WorkerSupport"));
+const WorkerProfileSetup = lazy(() => import("./pages/workers/WorkerProfileSetup"));
 const FindCustomers = lazy(() => import("./pages/FindCustomers"));
 const CustomerSupport = lazy(() => import("./pages/CustomerSupport"));
 const JoinAsCustomer = lazy(() => import("./pages/JoinAsCustomer"));
@@ -211,6 +212,7 @@ const App = () => (
                       <Route path="/get-verified" element={<GetVerified />} />
                       <Route path="/resume-builder" element={<ResumeBuilder />} />
                       <Route path="/worker-support" element={<WorkerSupport />} />
+                      <Route path="/workers/profile" element={<ProtectedRoute requiredRole="worker"><WorkerProfileSetup /></ProtectedRoute>} />
                       {/* <Route path="/government-schemes" element={<GovtSchemes />} /> */}
                       
                       {/* Auth routes */}

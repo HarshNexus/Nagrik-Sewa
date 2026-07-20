@@ -8,6 +8,12 @@ import Joi from 'joi';
 
 const router = Router();
 
+// Worker accounts created by the current registration flow are themselves
+// WorkerProfile documents. Older accounts may instead have a linked userId.
+const currentWorkerQuery = (userId: any) => ({
+  $or: [{ _id: userId }, { userId }]
+});
+
 // Worker profile validation schemas
 const workerProfileSchemas = {
   updateProfile: Joi.object({
@@ -98,7 +104,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     // Build search query
     const query: any = {
       isActive: true,
-      isApproved: true
+      // New worker accounts are pending verification by default. They should
+      // still be discoverable; rejected or suspended accounts must not be.
+      'verification.status': { $ne: 'rejected' }
     };
 
     // DEBUG: Log the query after building it
@@ -248,8 +256,9 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Get recent bookings and reviews
+    const workerAccountId = (worker.userId as any)?._id || worker._id;
     const recentBookings = await Booking.find({
-      workerId: worker.userId._id,
+      workerId: workerAccountId,
       status: 'completed'
     })
     .populate('customerId', 'firstName lastName avatar')
@@ -290,7 +299,7 @@ router.get('/me/profile', authenticate, authorize('worker'), async (req: Request
   try {
     const userId = req.user!._id;
 
-    const workerProfile = await WorkerProfile.findOne({ userId })
+    const workerProfile = await WorkerProfile.findOne(currentWorkerQuery(userId))
       .populate('userId', 'firstName lastName avatar phone email address');
 
     if (!workerProfile) {
@@ -321,7 +330,7 @@ router.put('/me/profile', authenticate, authorize('worker'), validateInput(worke
     const updates = req.body;
 
     const workerProfile = await WorkerProfile.findOneAndUpdate(
-      { userId },
+      currentWorkerQuery(userId),
       { $set: updates },
       { new: true, runValidators: true }
     ).populate('userId', 'firstName lastName avatar');
@@ -355,7 +364,7 @@ router.put('/me/availability', authenticate, authorize('worker'), validateInput(
     const availabilityUpdates = req.body;
 
     const workerProfile = await WorkerProfile.findOneAndUpdate(
-      { userId },
+      currentWorkerQuery(userId),
       { 
         $set: { 
           'availability.schedule': availabilityUpdates.schedule,
@@ -396,7 +405,7 @@ router.post('/me/portfolio', authenticate, authorize('worker'), validateInput(wo
     const portfolioItem = req.body;
 
     const workerProfile = await WorkerProfile.findOneAndUpdate(
-      { userId },
+      currentWorkerQuery(userId),
       { $push: { portfolio: portfolioItem } },
       { new: true }
     );
@@ -429,7 +438,7 @@ router.get('/me/dashboard', authenticate, authorize('worker'), async (req: Reque
     const userId = req.user!._id;
 
     const [workerProfile, recentBookings, monthlyEarnings] = await Promise.all([
-      WorkerProfile.findOne({ userId }),
+      WorkerProfile.findOne(currentWorkerQuery(userId)),
       Booking.find({ workerId: userId })
         .populate('customerId', 'firstName lastName avatar')
         .populate('serviceId', 'name category')
@@ -498,7 +507,7 @@ router.patch('/me/status', authenticate, authorize('worker'), async (req: Reques
     const { isCurrentlyAvailable } = req.body;
 
     const workerProfile = await WorkerProfile.findOneAndUpdate(
-      { userId },
+      currentWorkerQuery(userId),
       { 
         $set: { 
           'availability.isCurrentlyAvailable': isCurrentlyAvailable,

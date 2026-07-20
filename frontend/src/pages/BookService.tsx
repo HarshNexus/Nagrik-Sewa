@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { api } from '@/lib/api';
 import { 
   Calendar, 
   Clock, 
@@ -26,6 +27,13 @@ const BookService: React.FC = () => {
   const [searchParams] = useSearchParams();
   const serviceId = searchParams.get('service');
   const workerId = searchParams.get('worker');
+  const [selectedWorker, setSelectedWorker] = useState<{
+    id: string; firstName: string; lastName: string; avatar?: string; rating: number;
+    reviews: number; experience: string; skills: string[]; price: number;
+    availability: string; verified: boolean; category: string;
+  } | null>(null);
+  const [workerLoading, setWorkerLoading] = useState(true);
+  const [workerError, setWorkerError] = useState('');
 
   const [formData, setFormData] = useState({
     date: '',
@@ -49,28 +57,45 @@ const BookService: React.FC = () => {
 
   const [step, setStep] = useState(1); // 1: Service Details, 2: Worker Selection, 3: Payment
 
-  // Mock data - would be fetched based on serviceId and workerId
+  // Load only the worker selected by the customer; do not use a sample profile.
+  useEffect(() => {
+    if (!workerId) {
+      setWorkerError('Please select a worker before booking.');
+      setWorkerLoading(false);
+      return;
+    }
+
+    api.get(`/workers/${workerId}`).then(({ data }) => {
+      const profile = data.data?.worker;
+      if (!profile) throw new Error('Worker profile not found');
+      const account = profile.userId || profile;
+      const skills = (profile.skills || []).map((skill: any) => typeof skill === 'string' ? skill : skill.name).filter(Boolean);
+      const primarySkill = profile.skills?.[0] || {};
+      setSelectedWorker({
+        id: profile._id,
+        firstName: account.firstName || 'Worker',
+        lastName: account.lastName || '',
+        avatar: account.avatar,
+        rating: profile.rating?.average || 0,
+        reviews: profile.rating?.totalReviews || 0,
+        experience: `${profile.experience || 0} years`,
+        skills,
+        price: primarySkill.hourlyRate || 0,
+        availability: profile.availability?.isCurrentlyAvailable ? 'Today' : 'on request',
+        verified: profile.verification?.status === 'verified',
+        category: primarySkill.category || profile.serviceCategories?.[0] || skills[0] || 'Service'
+      });
+    }).catch(() => setWorkerError('The selected worker profile is no longer available.'))
+      .finally(() => setWorkerLoading(false));
+  }, [workerId]);
+
   const service = {
-    id: '1',
-    name: 'House Cleaning',
-    category: 'Home Services',
-    description: 'Professional home cleaning services',
+    id: serviceId || '',
+    name: selectedWorker?.category || 'Selected Service',
+    category: selectedWorker?.category || 'Service',
+    description: selectedWorker ? `Service provided by ${selectedWorker.firstName} ${selectedWorker.lastName}` : '',
     basePrice: 500,
     icon: '🏠'
-  };
-
-  const selectedWorker = {
-    id: 'w1',
-    firstName: 'Priya',
-    lastName: 'Sharma',
-    avatar: '',
-    rating: 4.9,
-    reviews: 234,
-    experience: '5 years',
-    skills: ['House Cleaning', 'Deep Cleaning'],
-    price: 500,
-    availability: 'Today',
-    verified: true
   };
 
   const timeSlots = [
@@ -97,7 +122,7 @@ const BookService: React.FC = () => {
   };
 
   const calculateTotal = () => {
-    let total = selectedWorker.price;
+    let total = selectedWorker?.price || 0;
     if (formData.emergencyService) total += 100;
     const tax = Math.round(total * 0.18);
     const convenienceFee = 50;
@@ -117,6 +142,24 @@ const BookService: React.FC = () => {
   };
 
   const pricing = calculateTotal();
+
+  if (workerLoading) {
+    return <div className="min-h-screen flex items-center justify-center text-gray-600">Loading selected worker...</div>;
+  }
+
+  if (workerError || !selectedWorker) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader><CardTitle>Worker unavailable</CardTitle></CardHeader>
+          <CardContent>
+            <p className="mb-4 text-gray-600">{workerError}</p>
+            <Button onClick={() => navigate('/workers')}>Find workers</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

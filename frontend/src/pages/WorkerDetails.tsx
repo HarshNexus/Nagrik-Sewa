@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +62,7 @@ interface Review {
 
 const WorkerDetails: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [worker, setWorker] = useState<WorkerData | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,16 +76,34 @@ const WorkerDetails: React.FC = () => {
   const fetchWorkerDetails = async () => {
     setLoading(true);
     try {
-      const [workerRes, reviewsRes] = await Promise.all([
-        api.get(`/workers/${id}`),
-        api.get(`/workers/${id}/reviews`)
-      ]);
+      const workerRes = await api.get(`/workers/${id}`);
       
       if (workerRes.data.success) {
-        setWorker(workerRes.data.data);
+        const profile = workerRes.data.data.worker;
+        const account = profile.userId || profile;
+        const serviceArea = profile.serviceAreas?.[0] || {};
+        setWorker({
+          _id: profile._id,
+          firstName: account.firstName || 'Worker',
+          lastName: account.lastName || '',
+          avatar: account.avatar,
+          bio: profile.description || '',
+          skills: (profile.skills || []).map((skill: any) => typeof skill === 'string' ? skill : skill.name).filter(Boolean),
+          rating: profile.rating?.average || 0,
+          totalReviews: profile.rating?.totalReviews || 0,
+          location: { address: account.address?.street || serviceArea.city || '', city: account.address?.city || serviceArea.city || 'India', state: account.address?.state || serviceArea.state || 'India' },
+          pricing: { hourlyRate: profile.skills?.[0]?.hourlyRate || 0, minimumCharge: profile.preferences?.minimumJobValue || 0 },
+          availability: { isAvailable: profile.availability?.isCurrentlyAvailable ?? true },
+          isVerified: profile.verification?.status === 'verified',
+          completedJobs: profile.stats?.completedBookings || 0,
+          joinedDate: account.createdAt || profile.createdAt,
+          languages: profile.languages || [],
+          experience: `${profile.experience || 0} years`,
+          certifications: (profile.skills || []).flatMap((skill: any) => skill.certifications || [])
+        });
       }
-      if (reviewsRes.data.success) {
-        setReviews(reviewsRes.data.data || []);
+      if (workerRes.data.success) {
+        setReviews(workerRes.data.data.reviews || []);
       }
     } catch (error) {
       console.error('Error fetching worker details:', error);
@@ -276,7 +295,7 @@ const WorkerDetails: React.FC = () => {
               <CardTitle>Contact</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full">
+              <Button className="w-full" onClick={() => navigate(`/book-service?worker=${worker._id}`)}>
                 <Calendar className="mr-2 h-4 w-4" />
                 Book Service
               </Button>

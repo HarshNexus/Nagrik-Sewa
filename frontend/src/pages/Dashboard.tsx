@@ -344,7 +344,7 @@ const Dashboard: React.FC = () => {
                   onClick={() => navigate('/workers/profile')}
                 >
                   <Calendar className="mr-2 h-4 w-4" />
-                  Update Availability
+                  Complete Work Profile
                 </Button>
                 <Button 
                   className="w-full justify-start" 
