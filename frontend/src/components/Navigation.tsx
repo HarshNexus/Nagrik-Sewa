@@ -34,6 +34,7 @@ import {
 
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { LocationSelector } from "@/components/LocationSelector";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 interface NavLink {
   href: string;
@@ -170,6 +171,7 @@ export function Navigation() {
           <div className="hidden lg:flex flex-wrap items-center justify-end gap-2 xl:gap-3 border-l pl-3 xl:pl-4 flex-shrink-0 max-w-full">
             <LanguageSelector variant="compact" />
             <LocationSelector variant="compact" showDistrict={false} />
+            <InstallAppButton />
           </div>
 
           {/* Auth Section */}
@@ -335,6 +337,7 @@ export function Navigation() {
                 <span className="text-sm text-muted-foreground">Location</span>
                 <LocationSelector variant="compact" showDistrict />
               </div>
+              <InstallAppButton className="w-full justify-center" />
             </div>
 
             {/* Auth links in mobile */}

@@ -15,6 +15,7 @@ import { FontProvider } from "./contexts/FontContext";
 import { SocketProvider } from "./contexts/SocketContext";
 import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { GoogleAuthProvider } from "./components/GoogleAuthProvider";
+import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 
 // Lazy load pages for better performance
 import { Suspense, lazy } from "react";
@@ -162,6 +163,7 @@ const App = () => (
                       <TooltipProvider>
                         <Toaster />
                         <Sonner />
+                        <PwaUpdatePrompt />
                         <BrowserRouter 
                           future={{
                             v7_startTransition: true,
