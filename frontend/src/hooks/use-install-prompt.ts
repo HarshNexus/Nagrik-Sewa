@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -17,44 +17,54 @@ function isIOSDevice() {
   return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 }
 
+// Captured at module scope so we never miss the event: Chrome can fire
+// beforeinstallprompt as soon as this script runs, which is earlier than
+// any React useEffect gets a chance to attach a listener.
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
+let isInstalled = isStandalone();
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((listener) => listener());
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e as BeforeInstallPromptEvent;
+  notify();
+});
+
+window.addEventListener("appinstalled", () => {
+  isInstalled = true;
+  deferredPrompt = null;
+  notify();
+});
+
+function subscribe(callback: () => void) {
+  listeners.add(callback);
+  return () => listeners.delete(callback);
+}
+
 export function useInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(isStandalone());
+  const canInstall = useSyncExternalStore(
+    subscribe,
+    () => !isInstalled && !!deferredPrompt,
+  );
+  const installed = useSyncExternalStore(subscribe, () => isInstalled);
   const isIOS = isIOSDevice();
-
-  useEffect(() => {
-    const onBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-    const onInstalled = () => {
-      setIsInstalled(true);
-      setDeferredPrompt(null);
-    };
-
-    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    window.addEventListener("appinstalled", onInstalled);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
-  }, []);
 
   const promptInstall = useCallback(async () => {
     if (!deferredPrompt) return "unavailable" as const;
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
+    deferredPrompt = null;
+    notify();
     return outcome;
-  }, [deferredPrompt]);
+  }, []);
 
   return {
     // Android/desktop Chrome & Edge fire beforeinstallprompt; iOS Safari never does.
-    canInstall: !isInstalled && !!deferredPrompt,
+    canInstall,
     // iOS has no install prompt API, so we offer manual "Add to Home Screen" instructions instead.
-    needsManualIOSInstall: !isInstalled && isIOS && !deferredPrompt,
-    isInstalled,
+    needsManualIOSInstall: !installed && isIOS && !canInstall,
+    isInstalled: installed,
     promptInstall,
   };
 }
