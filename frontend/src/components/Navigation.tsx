@@ -34,7 +34,6 @@ import {
 
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { LocationSelector } from "@/components/LocationSelector";
-import { InstallAppButton } from "@/components/InstallAppButton";
 
 interface NavLink {
   href: string;
@@ -99,22 +98,111 @@ export function Navigation() {
       ];
     }
 
-    // Customer navigation (no Home tab - Dashboard is the main page)
-    return [
-      { href: "/dashboard", label: "Dashboard", icon: Briefcase },
-      { href: "/workers", label: "Find Workers", icon: Users },
-      { href: "/services", label: "Services", icon: Briefcase },
-    ];
+    // Customers get no top links: the dashboard has quick actions, and the profile menu has the rest
+    return [];
   };
 
   const navLinks = getNavLinks();
 
+  // The full navigation is only for the dashboards; everywhere else a signed-in user sees just the logo and profile menu.
+  const homePath = user?.role === 'admin' ? "/admin" : "/dashboard";
+  const isCompact = isAuthenticated && location.pathname !== homePath;
+
+  const profileMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user?.avatar} alt={user?.firstName} />
+            <AvatarFallback>
+              {user?.firstName?.[0]}
+              {user?.lastName?.[0]}
+            </AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">
+              {user?.firstName} {user?.lastName}
+            </p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {user?.email}
+            </p>
+            {user?.role === 'admin' && (
+              <p className="text-xs font-semibold text-green-600 mt-1">Administrator</p>
+            )}
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {user?.role === 'admin' ? (
+          <>
+            <DropdownMenuItem asChild>
+              <Link to="/admin">
+                <Shield className="mr-2 h-4 w-4" />
+                Admin Dashboard
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/profile">
+                <Settings className="mr-2 h-4 w-4" />
+                {t("navigation.profile")}
+              </Link>
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <>
+            <DropdownMenuItem asChild>
+              <Link to="/dashboard">
+                <Briefcase className="mr-2 h-4 w-4" />
+                Dashboard
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/bookings">
+                <Calendar className="mr-2 h-4 w-4" />
+                {t("navigation.bookings")}
+              </Link>
+            </DropdownMenuItem>
+            {user?.role === 'customer' && (
+              <DropdownMenuItem asChild>
+                <Link to="/payments">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Payments
+                </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem asChild>
+              <Link to="/profile">
+                <Settings className="mr-2 h-4 w-4" />
+                {t("navigation.profile")}
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={logout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          {t("navigation.logout")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 overflow-x-clip">
+    <nav
+      className={`z-50 overflow-x-clip ${
+        isCompact
+          ? // Blends into the page (which is bg-gray-50): no border, scrolls away with the content
+            "relative bg-gray-50"
+          : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0"
+      }`}
+    >
       <div className="container mx-auto px-4">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 lg:h-16 lg:flex-nowrap">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
+          <Link to={isAuthenticated ? homePath : "/"} className="flex items-center space-x-2 flex-shrink-0">
             <img src="/logo-hindi.svg" alt="Nagrik Sewa" className="h-10 w-10 sm:h-12 sm:w-12" />
             <div className="flex flex-col">
               <span className="font-bold text-sm sm:text-lg text-green-600">Nagrik Sewa</span>
@@ -123,7 +211,7 @@ export function Navigation() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex min-w-0 flex-1 items-center justify-center gap-3 xl:gap-4 overflow-hidden">
+          <div className={`${isCompact || navLinks.length === 0 ? "hidden" : "hidden lg:flex"} min-w-0 flex-1 items-center justify-center gap-3 xl:gap-4 overflow-hidden`}>
             {navLinks.map((link) => (
               <div key={link.href} className="relative group">
                 {link.dropdown ? (
@@ -168,88 +256,21 @@ export function Navigation() {
           </div>
 
           {/* Language & Location Selectors - separate from nav links */}
-          <div className="hidden lg:flex flex-wrap items-center justify-end gap-2 xl:gap-3 border-l pl-3 xl:pl-4 flex-shrink-0 max-w-full">
+          <div className={`${isCompact ? "hidden" : "hidden lg:flex"} ml-auto flex-wrap items-center justify-end gap-2 xl:gap-3 flex-shrink-0 max-w-full ${navLinks.length > 0 ? "border-l pl-3 xl:pl-4" : ""}`}>
             <LanguageSelector variant="compact" />
             <LocationSelector variant="compact" showDistrict={false} />
-            <InstallAppButton />
           </div>
 
           {/* Auth Section */}
           <div className="hidden lg:flex flex-wrap items-center justify-end gap-2 xl:gap-3 flex-shrink-0 max-w-full">
             {isAuthenticated ? (
               <>
-                {user?.role !== 'admin' && (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link to="/bookings">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {t("navigation.bookings")}
-                    </Link>
+                {!isCompact && (
+                  <Button variant="ghost" size="sm">
+                    <Bell className="h-4 w-4" />
                   </Button>
                 )}
-                <Button variant="ghost" size="sm">
-                  <Bell className="h-4 w-4" />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.avatar} alt={user?.firstName} />
-                        <AvatarFallback>
-                          {user?.firstName?.[0]}
-                          {user?.lastName?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {user?.firstName} {user?.lastName}
-                        </p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                          {user?.email}
-                        </p>
-                        {user?.role === 'admin' && (
-                          <p className="text-xs font-semibold text-green-600 mt-1">Administrator</p>
-                        )}
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {user?.role === 'admin' ? (
-                      // Admin dropdown - simplified
-                      <>
-                        <DropdownMenuItem asChild>
-                          <Link to="/admin">
-                            <Shield className="mr-2 h-4 w-4" />
-                            Admin Dashboard
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link to="/profile">
-                            <Settings className="mr-2 h-4 w-4" />
-                            {t("navigation.profile")}
-                          </Link>
-                        </DropdownMenuItem>
-                      </>
-                    ) : (
-                      // Regular user dropdown - only Settings and Logout
-                      <>
-                        <DropdownMenuItem asChild>
-                          <Link to="/profile">
-                            <Settings className="mr-2 h-4 w-4" />
-                            {t("navigation.profile")}
-                          </Link>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={logout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      {t("navigation.logout")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {profileMenu}
               </>
             ) : (
               <>
@@ -263,21 +284,25 @@ export function Navigation() {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden flex-shrink-0"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            aria-expanded={isMobileMenuOpen}
-            aria-label="Toggle navigation menu"
-          >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          {/* Mobile: profile menu on compact pages, otherwise the full menu button */}
+          {isCompact ? (
+            <div className="lg:hidden flex-shrink-0">{profileMenu}</div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden flex-shrink-0"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-expanded={isMobileMenuOpen}
+              aria-label="Toggle navigation menu"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          )}
         </div>
 
         {/* Mobile Menu */}
-        {isMobileMenuOpen && (
+        {isMobileMenuOpen && !isCompact && (
           <div className="lg:hidden mt-2 space-y-2 pb-4 max-h-[calc(100vh-4rem)] overflow-y-auto">
             {navLinks.map((link) => (
               <div key={link.href}>
@@ -337,7 +362,6 @@ export function Navigation() {
                 <span className="text-sm text-muted-foreground">Location</span>
                 <LocationSelector variant="compact" showDistrict />
               </div>
-              <InstallAppButton className="w-full justify-center" />
             </div>
 
             {/* Auth links in mobile */}

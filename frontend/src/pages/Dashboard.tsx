@@ -141,10 +141,10 @@ const Dashboard: React.FC = () => {
 
       {/* Quick Stats */}
       <TooltipProvider>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isWorker ? 'lg:grid-cols-4' : ''} gap-6 mb-8`}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Card className="cursor-pointer hover:shadow-blue-500/20 hover:border-blue-500/50">
+              <Card className="cursor-pointer hover:shadow-blue-500/20 hover:border-blue-500/50" onClick={() => navigate(isWorker ? '/bookings' : '/bookings?tab=active')}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
                     {isWorker ? 'Total Bookings' : 'Active Bookings'}
@@ -169,14 +169,14 @@ const Dashboard: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-1">
                 {isWorker 
                   ? 'Total number of service requests you have received'
-                  : 'Your current active service bookings. Click to view details.'}
+                  : 'Bookings that are pending, confirmed or in progress. Click to view them.'}
               </p>
             </TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Card className="cursor-pointer hover:shadow-green-500/20 hover:border-green-500/50">
+              <Card className="cursor-pointer hover:shadow-green-500/20 hover:border-green-500/50" onClick={() => !isWorker && navigate('/payments')}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
                     {isWorker ? 'Earnings' : 'Total Spent'}
@@ -190,7 +190,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-xs text-muted-foreground">
                     {isWorker 
                       ? (dashboardData.earnings === 0 ? 'No earnings yet' : 'From completed services')
-                      : (dashboardData.totalSpent === 0 ? 'No transactions yet' : 'From completed bookings')
+                      : (dashboardData.totalSpent === 0 ? 'No transactions yet' : 'From paid bookings')
                     }
                   </p>
                 </CardContent>
@@ -201,11 +201,12 @@ const Dashboard: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-1">
                 {isWorker 
                   ? 'Your total earnings from completed services'
-                  : 'Total amount spent on services. Includes all completed bookings.'}
+                  : 'Total amount you have paid. Click to see your payment history.'}
               </p>
             </TooltipContent>
           </Tooltip>
 
+          {isWorker && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Card className="cursor-pointer hover:shadow-yellow-500/20 hover:border-yellow-500/50">
@@ -233,11 +234,13 @@ const Dashboard: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-1">
                 {isWorker 
                   ? 'Your average rating from customer reviews'
-                  : 'Number of reviews you have given to service providers.'}
+                  : 'Number of reviews you have given to service providers. Click to see them.'}
               </p>
             </TooltipContent>
           </Tooltip>
+          )}
 
+          {isWorker && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Card className="cursor-pointer hover:shadow-purple-500/20 hover:border-purple-500/50">
@@ -265,10 +268,11 @@ const Dashboard: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-1">
                 {isWorker 
                   ? 'Percentage of bookings you have successfully completed'
-                  : 'Services you have bookmarked for quick access later.'}
+                  : 'Services you have bookmarked for quick access later. Click to open them.'}
               </p>
             </TooltipContent>
           </Tooltip>
+          )}
         </div>
       </TooltipProvider>
 
@@ -328,14 +332,14 @@ const Dashboard: React.FC = () => {
         </Card>
 
         {/* Quick Actions */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
             <CardDescription>
               Common tasks and shortcuts
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-1 flex-col gap-3">
             {isWorker ? (
               <>
                 <Button 
@@ -365,24 +369,17 @@ const Dashboard: React.FC = () => {
               </>
             ) : (
               <>
-                <Button 
-                  className="w-full justify-start" 
-                  variant="outline"
-                  onClick={() => navigate('/services')}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Book a Service
-                </Button>
-                <Button 
-                  className="w-full justify-start" 
+                {/* flex-1: the two buttons share the card's height instead of leaving a gap below */}
+                <Button
+                  className="w-full flex-1 justify-start"
                   variant="outline"
                   onClick={() => navigate('/workers')}
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Find Workers
                 </Button>
-                <Button 
-                  className="w-full justify-start" 
+                <Button
+                  className="w-full flex-1 justify-start"
                   variant="outline"
                   onClick={() => navigate('/bookings')}
                 >

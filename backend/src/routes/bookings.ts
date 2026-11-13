@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { Booking } from '../models/Booking';
+import { Payment } from '../models/Payment';
 import { Service } from '../models/Service';
 import { WorkerProfile } from '../models/WorkerProfile';
 import { User } from '../models/User';
@@ -10,14 +12,75 @@ import { sendBookingNotificationSMS } from '../services/sms';
 
 const router = Router();
 
-// Create new booking (authentication optional for testing)
-router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req: Request, res: Response): Promise<void> => {
+const findBookableWorker = (workerId: string) =>
+  WorkerProfile.findOne({
+    $or: [{ _id: workerId }, { userId: workerId }],
+    isActive: true,
+    'verification.status': { $ne: 'rejected' }
+  });
+
+// Single source of truth for booking prices; used by both the quote and the booking itself.
+const calculatePricing = (basePrice: number, isEmergency: boolean) => {
+  const emergencyCharges = isEmergency ? Math.round(basePrice * 0.5) : 0; // 50% emergency surcharge
+  const subtotal = basePrice + emergencyCharges;
+  const gst = Math.round(subtotal * 0.18);
+  const platformFee = Math.max(5, Math.round(subtotal * 0.05)); // convenience fee: 5%, minimum ₹5
+  return {
+    emergencyCharges,
+    subtotal,
+    gst,
+    platformFee,
+    totalAmount: subtotal + gst + platformFee,
+    workerEarnings: subtotal - platformFee
+  };
+};
+
+// Price preview for the booking form: the selected worker's hourly rate x hours.
+router.post('/quote', authenticate, async (req: Request, res: Response): Promise<void> => {
+  const { workerId, hours, emergency } = req.body;
+  const hourlyRate = typeof workerId === 'string' && mongoose.isValidObjectId(workerId)
+    ? (await findBookableWorker(workerId).select('skills'))?.skills?.[0]?.hourlyRate
+    : undefined;
+  if (!hourlyRate || !(hours >= 1 && hours <= 8)) {
+    res.status(400).json({ success: false, message: 'A worker with an hourly rate and 1-8 hours are required' });
+    return;
+  }
+
+  const basePrice = hourlyRate * hours;
+  res.json({ success: true, data: { basePrice, hourlyRate, hours, ...calculatePricing(basePrice, !!emergency) } });
+});
+
+// Time ranges already taken by paid (confirmed) bookings, so the form can disable those slots.
+router.get('/worker/:workerId/booked-slots', authenticate, async (req: Request, res: Response): Promise<void> => {
+  const { workerId } = req.params;
+  const from = new Date(req.query.from as string);
+  const to = new Date(req.query.to as string);
+  if (!mongoose.isValidObjectId(workerId) || isNaN(from.getTime()) || isNaN(to.getTime())) {
+    res.status(400).json({ success: false, message: 'Invalid worker or date range' });
+    return;
+  }
+
+  const profile = await WorkerProfile.findById(workerId).select('userId');
+  const bookings = await Booking.find({
+    workerId: { $in: [workerId, profile?.userId].filter(Boolean) },
+    status: { $in: ['confirmed', 'in-progress'] },
+    'schedule.requestedDate': { $gte: from, $lt: to }
+  }).select('schedule.requestedDate schedule.estimatedDuration').lean();
+
+  res.json({
+    success: true,
+    data: bookings.map(b => ({ start: b.schedule.requestedDate, durationMinutes: b.schedule.estimatedDuration }))
+  });
+});
+
+// Create new booking. Authentication is required because the booking is paid for afterwards.
+router.post('/', authenticate, validateInput(schemas.createBooking), async (req: Request, res: Response): Promise<void> => {
   try {
-    // Use user ID if authenticated, otherwise use a test customer ID or create anonymous booking
-    const customerId = req.user?._id || '60d5ecb74f0a2c0015b0f0f0'; // Default test customer ID
+    const customerId = req.user!._id;
     const {
       serviceId,
       workerId,
+      hours,
       bookingType,
       schedule,
       location,
@@ -26,9 +89,9 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
       emergency
     } = req.body;
 
-    // Verify service exists
-    const service = await Service.findById(serviceId);
-    if (!service || !service.isActive) {
+    // Verify service exists (optional: worker bookings are priced from the worker's rate)
+    const service = serviceId ? await Service.findById(serviceId) : null;
+    if (serviceId && (!service || !service.isActive)) {
       res.status(404).json({
         success: false,
         message: 'Service not found or inactive'
@@ -39,11 +102,7 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
     // If worker specified, verify worker
     let assignedWorker = null;
     if (workerId) {
-      const workerProfile = await WorkerProfile.findOne({
-        $or: [{ _id: workerId }, { userId: workerId }],
-        isActive: true,
-        'verification.status': { $ne: 'rejected' }
-      }).populate('userId');
+      const workerProfile = await findBookableWorker(workerId).populate('userId');
 
       if (!workerProfile) {
         res.status(404).json({
@@ -56,28 +115,22 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
       assignedWorker = workerProfile;
     }
 
-    // Calculate pricing
-    const basePrice = service.pricing.basePrice;
-    let additionalCharges = 0;
-    let emergencyCharges = 0;
-    let travelCharges = 0;
-
-    // Add emergency charges if applicable
-    if (bookingType === 'emergency') {
-      emergencyCharges = Math.round(basePrice * 0.5); // 50% emergency surcharge
+    // Calculate pricing: the selected worker's hourly rate x hours, else the service's base price
+    const workerSkill = assignedWorker?.skills?.[0];
+    let basePrice: number;
+    if (workerSkill?.hourlyRate && hours) {
+      basePrice = workerSkill.hourlyRate * hours;
+    } else if (service) {
+      basePrice = service.pricing.basePrice;
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Select a worker with an hourly rate and the number of hours, or a service'
+      });
+      return;
     }
-
-    // Calculate distance-based travel charges
-    if (assignedWorker && location.coordinates) {
-      // Mock travel charges calculation - in real app, use Google Maps API
-      travelCharges = 50; // Base travel charge
-    }
-
-    const subtotal = basePrice + additionalCharges + emergencyCharges + travelCharges;
-    const gst = Math.round(subtotal * 0.18); // 18% GST
-    const platformFee = Math.round(subtotal * 0.05); // 5% platform fee
-    const totalAmount = subtotal + gst + platformFee;
-    const workerEarnings = subtotal - platformFee;
+    const { emergencyCharges, gst, platformFee, totalAmount, workerEarnings } =
+      calculatePricing(basePrice, bookingType === 'emergency');
 
     // Create booking
     const booking = new Booking({
@@ -86,8 +139,8 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
       serviceId,
       bookingType,
       serviceDetails: {
-        serviceName: service.name,
-        category: service.category,
+        serviceName: service?.name || workerSkill?.name,
+        category: service?.category || workerSkill?.category,
         description: serviceDetails.description,
         customRequirements: serviceDetails.customRequirements,
         urgencyLevel: serviceDetails.urgencyLevel
@@ -98,7 +151,6 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
         basePrice,
         additionalCharges: [],
         emergencyCharges,
-        travelCharges,
         tax: {
           gst,
           serviceTax: 0
@@ -126,9 +178,11 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
     await booking.save();
 
     // Update service stats
-    await Service.findByIdAndUpdate(serviceId, {
-      $inc: { 'stats.totalBookings': 1 }
-    });
+    if (serviceId) {
+      await Service.findByIdAndUpdate(serviceId, {
+        $inc: { 'stats.totalBookings': 1 }
+      });
+    }
 
     // Send confirmation email to customer
     const customer = await User.findById(customerId);
@@ -143,7 +197,7 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
             <p>Your booking has been confirmed!</p>
             <ul>
               <li><strong>Booking ID:</strong> ${booking.bookingId}</li>
-              <li><strong>Service:</strong> ${service.name}</li>
+              <li><strong>Service:</strong> ${booking.serviceDetails.serviceName}</li>
               <li><strong>Worker:</strong> ${assignedWorker ? `${assignedWorker.userId?.firstName || assignedWorker.firstName} ${assignedWorker.userId?.lastName || assignedWorker.lastName || ''}` : 'To be assigned'}</li>
               <li><strong>Date & Time:</strong> ${schedule.requestedDate.toDateString()} at ${schedule.requestedTime}</li>
               <li><strong>Address:</strong> ${location.address.street}, ${location.address.city}</li>
@@ -160,7 +214,7 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
       try {
         await sendBookingNotificationSMS(
           customer.phone,
-          `New booking confirmed: ${service.name} on ${schedule.requestedDate.toDateString()} at ${schedule.requestedTime}`
+          `New booking confirmed: ${booking.serviceDetails.serviceName} on ${schedule.requestedDate.toDateString()} at ${schedule.requestedTime}`
         );
       } catch (smsError) {
         console.error('Failed to send booking SMS:', smsError);
@@ -184,9 +238,9 @@ router.post('/', optionalAuth, validateInput(schemas.createBooking), async (req:
           schedule: booking.schedule,
           pricing: booking.pricing,
           assignedWorker: assignedWorker ? {
-            id: assignedWorker.userId._id,
-            name: `${assignedWorker.userId.firstName} ${assignedWorker.userId.lastName}`,
-            avatar: assignedWorker.userId.avatar,
+            id: booking.workerId,
+            name: `${(assignedWorker.userId as any)?.firstName || assignedWorker.firstName} ${(assignedWorker.userId as any)?.lastName || assignedWorker.lastName || ''}`.trim(),
+            avatar: (assignedWorker.userId as any)?.avatar,
             rating: assignedWorker.rating.average
           } : null
         }
@@ -325,7 +379,6 @@ router.get('/my-bookings', optionalAuth, async (req: Request, res: Response): Pr
       Booking.find(query)
         .populate('serviceId', 'name category images')
         .populate('customerId', 'firstName lastName avatar phone')
-        .populate('workerId', 'firstName lastName avatar phone')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -333,10 +386,22 @@ router.get('/my-bookings', optionalAuth, async (req: Request, res: Response): Pr
       Booking.countDocuments(query)
     ]);
 
+    // Workers live in WorkerProfile, which a populate on the User ref cannot resolve
+    const workerIds = [...new Set(bookings.filter(b => b.workerId).map(b => String(b.workerId)))];
+    const profiles = await WorkerProfile.find({ $or: [{ _id: { $in: workerIds } }, { userId: { $in: workerIds } }] })
+      .select('firstName lastName rating userId')
+      .lean();
+    const workerById = new Map<string, any>();
+    profiles.forEach(p => {
+      const worker = { _id: p._id, firstName: p.firstName, lastName: p.lastName, rating: p.rating?.average || 0 };
+      workerById.set(String(p._id), worker);
+      if (p.userId) workerById.set(String(p.userId), worker);
+    });
+
     res.json({
       success: true,
       data: {
-        bookings,
+        bookings: bookings.map(b => ({ ...b, worker: workerById.get(String(b.workerId)) })),
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -395,10 +460,12 @@ router.get('/customer/dashboard', optionalAuth, async (req: Request, res: Respon
       ['pending', 'confirmed', 'in-progress'].includes(b.status)
     ).length;
 
-    // Calculate total spent from completed bookings
-    const totalSpent = bookings
-      .filter(b => b.status === 'completed')
-      .reduce((sum, b) => sum + (b.pricing?.totalAmount || 0), 0);
+    // Total spent is what the customer has actually paid, not just completed bookings
+    const [paid] = await Payment.aggregate([
+      { $match: { customerId: userId, status: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalSpent = paid?.total || 0;
 
     // Count reviews given (bookings with customer reviews)
     const reviewsGiven = bookings.filter(b => 
@@ -453,16 +520,16 @@ router.get('/customer/dashboard', optionalAuth, async (req: Request, res: Respon
   }
 });
 
-// Get booking by ID (authentication optional for testing)
-router.get('/:id', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+// Get booking by ID
+router.get('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = req.user?._id; // Optional user ID
+    const userId = req.user!._id;
 
-    const booking = await Booking.findById(id)
+    // workerId is not populated: workers live in WorkerProfile, which the User ref cannot resolve
+    const booking = mongoose.isValidObjectId(id) ? await Booking.findById(id)
       .populate('serviceId', 'name category description images pricing')
-      .populate('customerId', 'firstName lastName avatar phone email address')
-      .populate('workerId', 'firstName lastName avatar phone email');
+      .populate('customerId', 'firstName lastName avatar phone email address') : null;
 
     if (!booking) {
       res.status(404).json({
@@ -474,7 +541,7 @@ router.get('/:id', optionalAuth, async (req: Request, res: Response): Promise<vo
 
     // Check if user has permission to view this booking
     const hasPermission = booking.customerId._id.toString() === userId.toString() ||
-                         booking.workerId?._id.toString() === userId.toString() ||
+                         String(booking.workerId) === userId.toString() ||
                          req.user!.role === 'admin';
 
     if (!hasPermission) {
@@ -485,18 +552,20 @@ router.get('/:id', optionalAuth, async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Get worker profile if worker is assigned
+    // Get worker profile if worker is assigned (workerId holds the WorkerProfile _id, or the linked User _id)
     let workerProfile = null;
     if (booking.workerId) {
-      workerProfile = await WorkerProfile.findOne({ userId: booking.workerId._id })
-        .select('rating skills experience verification');
+      workerProfile = await WorkerProfile.findOne({ $or: [{ _id: booking.workerId }, { userId: booking.workerId }] })
+        .select('firstName lastName phone rating skills experience verification');
     }
+    const paidPayment = await Payment.findOne({ bookingId: booking._id, status: 'paid' }).select('_id');
 
     res.json({
       success: true,
       data: {
         booking,
-        workerProfile
+        workerProfile,
+        receiptPaymentId: paidPayment?._id
       }
     });
   } catch (error) {

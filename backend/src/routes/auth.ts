@@ -1183,6 +1183,7 @@ router.get('/me', authMiddleware, async (req, res) => {
           phone: user.phone,
           role: user.role || (foundInCollection === 'workerprofiles' ? 'worker' : 'customer'),
           avatar: user.avatar,
+          address: user.address,
           isEmailVerified: user.isEmailVerified,
           isPhoneVerified: user.isPhoneVerified,
           isDigiLockerVerified: user.isDigiLockerVerified,

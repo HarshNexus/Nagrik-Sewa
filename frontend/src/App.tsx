@@ -4,8 +4,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Navigation } from "./components/Navigation";
+import { InstallAppPopup } from "./components/InstallAppPopup";
 import { Footer } from "./components/Footer";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -24,13 +25,14 @@ import { Loader2 } from "lucide-react";
 
 // Lazy loaded pages
 const Index = lazy(() => import("./pages/Index"));
-const Services = lazy(() => import("./pages/Services"));
 const Workers = lazy(() => import("./pages/Workers"));
 const WorkerDetails = lazy(() => import("./pages/WorkerDetails"));
 const Bookings = lazy(() => import("./pages/Bookings"));
 const BookingDetails = lazy(() => import("./pages/BookingDetails"));
 const BookService = lazy(() => import("./pages/BookService"));
-const Profile = lazy(() => import("./pages/Profile"));
+const Payment = lazy(() => import("./pages/Payment"));
+const PaymentHistory = lazy(() => import("./pages/PaymentHistory"));
+const PaymentReceipt = lazy(() => import("./pages/PaymentReceipt"));const Profile = lazy(() => import("./pages/Profile"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LocationDemo = lazy(() => import("./pages/LocationDemo"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -173,12 +175,14 @@ const App = () => (
                           <ScrollToTop />
                           <div className="min-h-screen flex flex-col bg-background">
                             <Navigation />
+                            <InstallAppPopup />
                             <main className="flex-1">
                               <Suspense fallback={<PageLoader />}>
                                 <Routes>
                       {/* Public routes */}
                       <Route path="/" element={<Index />} />
-                      <Route path="/services" element={<Services />} />
+                      {/* The standalone Services page was removed; old links land on Find Workers */}
+                      <Route path="/services" element={<Navigate to="/workers" replace />} />
                       <Route path="/workers" element={<Workers />} />
                       <Route path="/workers/:id" element={<WorkerDetails />} />
                       <Route path="/demo" element={<LocationDemo />} />
@@ -265,6 +269,30 @@ const App = () => (
                         element={
                           <ProtectedRoute>
                             <BookService />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payment/:bookingId"
+                        element={
+                          <ProtectedRoute>
+                            <Payment />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payments"
+                        element={
+                          <ProtectedRoute>
+                            <PaymentHistory />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payments/:id/receipt"
+                        element={
+                          <ProtectedRoute>
+                            <PaymentReceipt />
                           </ProtectedRoute>
                         }
                       />

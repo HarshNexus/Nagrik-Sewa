@@ -13,6 +13,7 @@ import { securityHeaders, generalRateLimit, errorHandler, notFound } from "./mid
 import authRoutes from "./routes/auth";
 import servicesRoutes from "./routes/services";
 import bookingsRoutes from "./routes/bookings";
+import paymentsRoutes from "./routes/payments";
 import chatbotRoutes from "./routes/chatbot";
 import chatRoutes from "./routes/chat";
 import testAIRoutes from "./routes/test-ai";
@@ -95,7 +96,13 @@ export async function createServer() {
   app.use("/api", endpointMonitor);
 
   // Body parsing middleware
-  app.use(express.json({ limit: requestBodyLimit }));
+  app.use(express.json({
+    limit: requestBodyLimit,
+    // Razorpay webhook signatures are computed over the exact raw bytes.
+    verify: (req, _res, buf) => {
+      if (req.url?.startsWith("/api/payments/webhook")) (req as any).rawBody = buf;
+    },
+  }));
   app.use(express.urlencoded({ extended: true, limit: requestBodyLimit }));
 
   // Health check endpoints
@@ -182,6 +189,7 @@ export async function createServer() {
   app.use("/api/verification", digilockerRoutes);
   app.use("/api/services", servicesRoutes);
   app.use("/api/bookings", bookingsRoutes);
+  app.use("/api/payments", paymentsRoutes);
   app.use("/api/chatbot", chatbotRoutes);
   app.use("/api/chat", chatRoutes);
   app.use("/api/test-ai", testAIRoutes);

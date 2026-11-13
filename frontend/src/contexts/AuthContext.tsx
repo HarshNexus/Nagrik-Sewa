@@ -12,6 +12,7 @@ interface User {
   phone?: string;
   role: 'customer' | 'worker' | 'admin';
   avatar?: string;
+  address?: { street?: string; city?: string; state?: string; pincode?: string; coordinates?: { latitude: number; longitude: number } };
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   isDigiLockerVerified?: boolean;

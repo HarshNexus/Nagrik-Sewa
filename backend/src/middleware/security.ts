@@ -207,8 +207,10 @@ export const schemas = {
 
   // Booking creation
   createBooking: Joi.object({
-    serviceId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).required(),
+    // Worker bookings are priced from the worker's hourly rate, so serviceId is optional.
+    serviceId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/),
     workerId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/),
+    hours: Joi.number().min(1).max(8),
     bookingType: Joi.string().valid('instant', 'scheduled', 'recurring', 'emergency').default('scheduled'),
     schedule: Joi.object({
       requestedDate: Joi.date().min('now').required(),
@@ -226,7 +228,7 @@ export const schemas = {
       coordinates: Joi.object({
         latitude: Joi.number().min(-90).max(90).required(),
         longitude: Joi.number().min(-180).max(180).required()
-      }).required(),
+      }),
       accessInstructions: Joi.string().max(500)
     }).required(),
     serviceDetails: Joi.object({

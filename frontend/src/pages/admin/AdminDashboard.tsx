@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
+import AdminPayments from './AdminPayments';
 import { 
   Users, 
   DollarSign, 
@@ -661,8 +662,9 @@ const AdminDashboard: React.FC = () => {
 
       {/* Main Tabs */}
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="workers">Workers ({workers.length})</TabsTrigger>
           <TabsTrigger value="services">Services ({services.length})</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
@@ -1077,6 +1079,10 @@ const AdminDashboard: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="payments">
+          <AdminPayments />
         </TabsContent>
 
         {/* Settings Tab */}

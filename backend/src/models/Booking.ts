@@ -221,8 +221,7 @@ const bookingSchema = new Schema<IBooking>({
   },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Service',
-    required: true
+    ref: 'Service'
   },
   
   bookingType: {
@@ -312,14 +311,8 @@ const bookingSchema = new Schema<IBooking>({
       landmark: String
     },
     coordinates: {
-      latitude: {
-        type: Number,
-        required: true
-      },
-      longitude: {
-        type: Number,
-        required: true
-      }
+      latitude: Number,
+      longitude: Number
     },
     accessInstructions: String
   },
@@ -576,8 +569,8 @@ bookingSchema.index({
   'schedule.requestedDate': 1
 });
 
-// Pre-save middleware to generate booking ID
-bookingSchema.pre('save', function(next) {
+// Generate the booking ID before validation, since bookingId is required
+bookingSchema.pre('validate', function(next) {
   if (this.isNew && !this.bookingId) {
     const timestamp = Date.now().toString(36);
     const random = Math.random().toString(36).substring(2, 8);
