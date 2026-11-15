@@ -1,28 +1,35 @@
 import React from 'react';
-import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
+import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
 interface GoogleLoginButtonProps {
   mode?: 'login' | 'register';
+  // Required for register mode: Google does not provide a mobile number.
+  phone?: string;
   onSuccess?: () => void;
   onError?: (error: string) => void;
 }
 
-export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ 
+export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   mode = 'login',
+  phone,
   onSuccess,
-  onError 
+  onError
 }) => {
   const API_BASE_URL = (import.meta.env.VITE_API_URL || `${window.location.origin}/api`).replace(/\/+$/, '');
   const { refreshUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Check if Google OAuth is configured
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const isGoogleConfigured = googleClientId && googleClientId !== 'your_google_oauth_client_id_here';
+  const isGoogleConfigured = googleClientId && !googleClientId.startsWith('your_');
+
+  const fail = (message: string) => {
+    toast({ variant: 'destructive', title: 'Google sign-in failed', description: message });
+    onError?.(message);
+  };
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
     try {
@@ -30,89 +37,47 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
         throw new Error('No credential received from Google');
       }
 
-      // Send Google credential to our backend
-      const googleAuthUrl = `${API_BASE_URL}/auth/google`;
-      console.log('[GoogleAuth] Calling URL:', googleAuthUrl);
-      const response = await fetch(googleAuthUrl, {
+      const response = await fetch(`${API_BASE_URL}/auth/google`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          credential: credentialResponse.credential,
-          mode // 'login' or 'register'
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResponse.credential, mode, phone })
       });
-
-      const data = await response.json();
-
+      const body = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Google authentication failed');
+        throw new Error(body.message || 'Google authentication failed');
       }
 
-      // Update auth context with user data
-      if (data.token && data.user) {
-        localStorage.setItem('authToken', data.token);
-        
-        // Refresh user data in auth context
-        await refreshUser();
-        
-        toast({
-          title: "Welcome!",
-          description: `Successfully ${mode === 'register' ? 'registered' : 'logged in'} with Google`,
-        });
-
-        // Navigate to verification page if needed, otherwise to dashboard
-        navigate('/verify-account');
-        onSuccess?.();
-      }
-
+      localStorage.setItem('authToken', body.data.token);
+      await refreshUser();
+      toast({ title: 'Welcome!', description: `Signed in as ${body.data.user.firstName}` });
+      navigate('/dashboard');
+      onSuccess?.();
     } catch (error) {
-      console.error('Google authentication error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Google authentication failed';
-      
-      toast({
-        variant: "destructive",
-        title: "Authentication Error",
-        description: errorMessage,
-      });
-
-      onError?.(errorMessage);
+      fail(error instanceof Error ? error.message : 'Google authentication failed');
     }
   };
 
-  const handleGoogleError = () => {
-    const errorMessage = 'Google authentication was cancelled or failed';
-    console.error(errorMessage);
-    
-    toast({
-      variant: "destructive",
-      title: "Authentication Error",
-      description: errorMessage,
-    });
-
-    onError?.(errorMessage);
-  };
+  if (!isGoogleConfigured) {
+    return (
+      <div className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-center text-sm text-gray-500">
+        Google sign-in is not available right now
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full">
-      {isGoogleConfigured ? (
+    <div className="w-full flex justify-center">
+      <GoogleOAuthProvider clientId={googleClientId}>
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
-          onError={handleGoogleError}
+          onError={() => fail('Google sign-in was cancelled or failed')}
           text={mode === 'register' ? 'signup_with' : 'signin_with'}
           theme="outline"
           size="large"
           width="400"
           logo_alignment="left"
         />
-      ) : (
-        <div className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-center text-sm text-gray-500">
-          Google authentication is not configured
-          <br />
-          <span className="text-xs">Set VITE_GOOGLE_CLIENT_ID in .env file</span>
-        </div>
-      )}
+      </GoogleOAuthProvider>
     </div>
   );
 };

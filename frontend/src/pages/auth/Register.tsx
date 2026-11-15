@@ -378,24 +378,16 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            {/* Google OAuth temporarily disabled until properly configured */}
-            <div className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-center text-sm text-gray-500">
-              Google Sign-In (Configure OAuth in .env)
-              <br />
-              <span className="text-xs">Set VITE_GOOGLE_CLIENT_ID with a valid Google OAuth Client ID</span>
-            </div>
-
-            {/* 
-            <GoogleLoginButton 
-              mode="register"
-              onSuccess={() => {
-                // Redirect will be handled by the GoogleLoginButton
-              }}
-              onError={(error) => {
-                setError(error);
-              }}
-            />
-            */}
+            {/* Google sign-up creates a customer account and needs the mobile number from the form above */}
+            {formData.role === 'customer' && (
+              validatePhoneNumber(formData.phone).isValid ? (
+                <GoogleLoginButton mode="register" phone={formData.phone} onError={setError} />
+              ) : (
+                <p className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-center text-sm text-gray-500">
+                  Enter your mobile number above to sign up with Google
+                </p>
+              )
+            )}
 
             <div className="text-center">
               <span className="text-sm text-gray-600">

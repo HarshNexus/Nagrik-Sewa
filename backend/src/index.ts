@@ -11,6 +11,7 @@ import { securityHeaders, generalRateLimit, errorHandler, notFound } from "./mid
 
 // Import routes
 import authRoutes from "./routes/auth";
+import googleAuthRoutes from "./routes/auth/google";
 import servicesRoutes from "./routes/services";
 import bookingsRoutes from "./routes/bookings";
 import paymentsRoutes from "./routes/payments";
@@ -184,6 +185,7 @@ export async function createServer() {
     req.url = "/login";
     authRoutes(req, res, next);
   });
+  app.use("/api/auth", googleAuthRoutes);
   app.use("/api/auth", authRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/verification", digilockerRoutes);
